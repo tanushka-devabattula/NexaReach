@@ -23,12 +23,15 @@ class Role(Base):
     description = Column(String(255))
 
 
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(150), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(20), nullable=True)
+    organization = Column(String(150), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)

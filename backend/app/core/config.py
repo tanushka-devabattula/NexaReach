@@ -7,11 +7,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./nexareach.db"
     SECRET_KEY: str = "change-this-before-production"
     API_KEY: str = ""
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
     )
-
 
 settings = Settings()
