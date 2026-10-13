@@ -1,0 +1,26 @@
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment secrets
+.env
+.env.*
+
+# Keep the example environment file
+!.env.example
+
+# SQLite database
+*.db
+*.sqlite3
+
+# Node.js
+node_modules/
+frontend/dist/
+
+# Editor and OS files
+.vscode/
+.DS_Store
+Thumbs.db
