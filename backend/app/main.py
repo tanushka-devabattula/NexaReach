@@ -1,16 +1,9 @@
-from app.routers.audience import router as audience_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.health import router as health_router
-from app.routers.auth import router as auth_router
-from app.routers.campaigns import router as campaigns_router
-from app.routers.templates import router as templates_router
-from app.routers.messages import router as messages_router
-from app.routers import segments
 
 from app.db.session import Base, engine
 from app.models import (
-    User, 
+    User,
     Role,
     AudienceMember,
     Segment,
@@ -19,7 +12,23 @@ from app.models import (
     Message,
     DeliveryLog,
     Feedback,
+    AIContentHistory,
+    ContentReview,
+    TranslationRecord,
 )
+from app.routers import segments
+from app.routers.ai import router as ai_router
+from app.routers.analysis import router as analysis_router
+from app.routers.audience import router as audience_router
+from app.routers.auth import router as auth_router
+from app.routers.campaigns import router as campaigns_router
+from app.routers.health import router as health_router
+from app.routers.messages import router as messages_router
+from app.routers.personalization import router as personalization_router
+from app.routers.review import router as review_router
+from app.routers.templates import router as templates_router
+from app.routers.translation import router as translation_router
+from app.routers.workflow import router as workflow_router
 
 app = FastAPI(
     title="NexaReach API",
@@ -30,6 +39,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Milestone 1 routers
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(audience_router)
@@ -37,6 +47,14 @@ app.include_router(campaigns_router)
 app.include_router(templates_router)
 app.include_router(messages_router)
 app.include_router(segments.router)
+
+# Milestone 2 routers
+app.include_router(ai_router)
+app.include_router(translation_router)
+app.include_router(personalization_router)
+app.include_router(analysis_router)
+app.include_router(review_router)
+app.include_router(workflow_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,5 +71,3 @@ app.add_middleware(
 @app.on_event("startup")
 def create_database_tables():
     Base.metadata.create_all(bind=engine)
-
-

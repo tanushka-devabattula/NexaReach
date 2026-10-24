@@ -11,6 +11,7 @@ import {
   ArrowUpRight,
   Sparkles,
   Globe,
+  BrainCircuit,
 } from "lucide-react";
 import "./Dashboard.css";
 
@@ -61,13 +62,24 @@ export default function Dashboard() {
       number: "04",
       color: "green",
     },
+    {
+      title: "AI Studio",
+      description:
+        "Generate, translate, personalize, analyze, and review messages.",
+      icon: BrainCircuit,
+      path: "/ai-studio",
+      number: "05",
+      color: "purple",
+    },
   ];
 
   return (
     <div className="dashboard-layout">
       <aside className="dashboard-sidebar">
         <div className="dashboard-brand">
-          <span className="dashboard-brand-icon"><Sparkles size={22} /></span>
+          <span className="dashboard-brand-icon">
+            <Sparkles size={22} />
+          </span>
           <div>
             <strong>NexaReach</strong>
             <small>COMMUNICATION PLATFORM</small>
@@ -77,9 +89,13 @@ export default function Dashboard() {
         <p className="dashboard-sidebar-label">WORKSPACE</p>
 
         <nav className="dashboard-nav">
-          <button className="dashboard-nav-item active" onClick={() => navigate("/dashboard")}>
+          <button
+            className="dashboard-nav-item active"
+            onClick={() => navigate("/dashboard")}
+          >
             <LayoutDashboard size={16} /> Dashboard
           </button>
+
           {items.map(({ title, icon: Icon, path }) => (
             <button
               className="dashboard-nav-item"
@@ -107,10 +123,16 @@ export default function Dashboard() {
       <main className="dashboard-main">
         <header className="dashboard-topbar">
           <div>
-            <span className="dashboard-breadcrumb">Workspace / Dashboard</span>
+            <span className="dashboard-breadcrumb">
+              Workspace / Dashboard
+            </span>
             <h1>Dashboard</h1>
           </div>
-          <button className="dashboard-website-btn" onClick={() => navigate("/")}>
+
+          <button
+            className="dashboard-website-btn"
+            onClick={() => navigate("/")}
+          >
             View website <ArrowUpRight size={15} />
           </button>
         </header>
@@ -120,13 +142,23 @@ export default function Dashboard() {
             <span className="dashboard-eyebrow">
               <Sparkles size={13} /> YOUR WORKSPACE
             </span>
-            <h2>Make every message<br />create an <span>impact.</span></h2>
+
+            <h2>
+              Make every message
+              <br />
+              create an <span>impact.</span>
+            </h2>
+
             <p>
               Manage your audience, build campaigns, and create multilingual
               messages — all in one place.
             </p>
-            <button className="dashboard-get-started" onClick={() => navigate("/audience")}>
-              Get started <ArrowUpRight size={15} />
+
+            <button
+              className="dashboard-get-started"
+              onClick={() => navigate("/ai-studio")}
+            >
+              Open AI Studio <ArrowUpRight size={15} />
             </button>
           </div>
 
@@ -134,9 +166,15 @@ export default function Dashboard() {
             <div className="dashboard-orbit">
               <Globe size={57} strokeWidth={1.5} />
             </div>
-            <span className="dashboard-float-tag tag-one">✦ Multilingual</span>
-            <span className="dashboard-float-tag tag-two">↗ Public impact</span>
-            <span className="dashboard-float-tag tag-three">✧ AI-powered</span>
+            <span className="dashboard-float-tag tag-one">
+              ✦ Multilingual
+            </span>
+            <span className="dashboard-float-tag tag-two">
+              ↗ Public impact
+            </span>
+            <span className="dashboard-float-tag tag-three">
+              ✧ AI-powered
+            </span>
           </div>
         </section>
 
@@ -146,27 +184,33 @@ export default function Dashboard() {
               <h2>Your workspace</h2>
               <p>Choose a module to continue working.</p>
             </div>
-            <span className="dashboard-module-count">04 MODULES</span>
+            <span className="dashboard-module-count">
+              {String(items.length).padStart(2, "0")} MODULES
+            </span>
           </div>
 
           <div className="dashboard-cards">
-            {items.map(({ title, description, icon: Icon, path, number, color }) => (
-              <button
-                className="dashboard-card"
-                key={title}
-                onClick={() => navigate(path)}
-              >
-                <div className={`dashboard-card-icon ${color}`}>
-                  <Icon size={21} />
-                </div>
-                <span className="dashboard-card-number">{number}</span>
-                <h3>{title}</h3>
-                <p>{description}</p>
-                <span className="dashboard-card-link">
-                  Open module <ArrowUpRight size={14} />
-                </span>
-              </button>
-            ))}
+            {items.map(
+              ({ title, description, icon: Icon, path, number, color }) => (
+                <button
+                  className="dashboard-card"
+                  key={title}
+                  onClick={() => navigate(path)}
+                >
+                  <div className={`dashboard-card-icon ${color}`}>
+                    <Icon size={21} />
+                  </div>
+
+                  <span className="dashboard-card-number">{number}</span>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+
+                  <span className="dashboard-card-link">
+                    Open module <ArrowUpRight size={14} />
+                  </span>
+                </button>
+              )
+            )}
           </div>
         </section>
 

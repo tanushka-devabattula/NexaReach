@@ -1,4 +1,3 @@
-
 from datetime import datetime
 
 from sqlalchemy import (
@@ -21,7 +20,6 @@ class Role(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), unique=True, nullable=False)
     description = Column(String(255))
-
 
 
 class User(Base):
@@ -123,4 +121,50 @@ class Feedback(Base):
     rating = Column(Integer, nullable=True)
     comment = Column(Text, nullable=True)
     sentiment = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AIContentHistory(Base):
+    __tablename__ = "ai_content_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    prompt = Column(Text, nullable=False)
+    channel = Column(String(50), nullable=True)
+    tone = Column(String(50), nullable=True)
+    language = Column(String(50), default="English")
+    generated_content = Column(Text, nullable=False)
+    provider = Column(String(50), default="offline-fallback")
+    is_fallback = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ContentReview(Base):
+    __tablename__ = "content_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    template_id = Column(Integer, ForeignKey("templates.id"), nullable=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String(50), default="pending_review", nullable=False)
+    compliance_score = Column(Integer, default=100)
+    compliance_issues = Column(JSON, nullable=True)
+    readability_metrics = Column(JSON, nullable=True)
+    reviewer_notes = Column(Text, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TranslationRecord(Base):
+    __tablename__ = "translation_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_text = Column(Text, nullable=False)
+    source_language = Column(String(50), default="English")
+    target_language = Column(String(50), nullable=False)
+    translated_text = Column(Text, nullable=False)
+    is_rtl = Column(Boolean, default=False)
+    is_fallback = Column(Boolean, default=True)
+    provider = Column(String(50), default="offline-fallback")
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,4 +1,3 @@
-
 from app.models.models import (
     User,
     Role,
@@ -9,6 +8,9 @@ from app.models.models import (
     Message,
     DeliveryLog,
     Feedback,
+    AIContentHistory,
+    ContentReview,
+    TranslationRecord,
 )
 
 __all__ = [
@@ -21,4 +23,7 @@ __all__ = [
     "Message",
     "DeliveryLog",
     "Feedback",
+    "AIContentHistory",
+    "ContentReview",
+    "TranslationRecord",
 ]

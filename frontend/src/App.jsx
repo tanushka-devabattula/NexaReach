@@ -1,6 +1,6 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
+import AIStudio from "./pages/AIStudio";
 import LandingPage from "./pages/LandingPage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -25,6 +25,7 @@ function App() {
         <Route path="/campaigns" element={<Campaigns />} />
         <Route path="/templates" element={<Templates />} />
         <Route path="/segments" element={<Segments />} />
+        <Route path="/ai-studio" element={<AIStudio />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
