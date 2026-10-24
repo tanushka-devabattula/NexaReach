@@ -389,3 +389,130 @@ def test_milestone_1_routes_intact():
     assert isinstance(msg_res.json(), list)
     assert len(msg_res.json()) >= 1
 
+
+# ---------------------------------------------------------------------
+# 8. Priority 1 Correctness Fixes: Compliance Blocking, Tone Improvement, Provider Retry
+# ---------------------------------------------------------------------
+def test_api_approval_blocked_on_critical_issues():
+    """Verify approval is strictly blocked (HTTP 400) if content has critical compliance issues."""
+    bad_payload = {
+        "campaign_id": 1,
+        "content": "Special offer! 100% cure guaranteed and win cash prizes! " * 3,
+        "channel": "SMS",
+        "reviewer_notes": "Attempting approval on non-compliant content",
+    }
+    sub_res = client.post("/review/submit", json=bad_payload)
+    assert sub_res.status_code == 201, sub_res.text
+    review_id = sub_res.json()["id"]
+
+    # Attempt to approve -> MUST be blocked with HTTP 400
+    dec_res = client.post(
+        f"/review/{review_id}/decision",
+        json={"decision": "approved", "reviewer_notes": "Trying to approve critical error"},
+    )
+    assert dec_res.status_code == 400, f"Expected 400 blocked, got {dec_res.status_code}"
+    assert "approval blocked" in dec_res.json()["detail"].lower()
+
+    # Rejection should still succeed
+    rej_res = client.post(
+        f"/review/{review_id}/decision",
+        json={"decision": "rejected", "reviewer_notes": "Properly rejected due to critical claims"},
+    )
+    assert rej_res.status_code == 200
+    assert rej_res.json()["status"] == "rejected"
+
+
+def test_api_approval_succeeds_on_valid_content():
+    """Verify compliant content with score >= 60 and no critical errors can be approved."""
+    good_payload = {
+        "campaign_id": 1,
+        "content": "Health Advisory: Dengue prevention camp at Primary Health Center. Helpline: 1800-000-111. Reply STOP to opt out.",
+        "channel": "SMS",
+        "reviewer_notes": "Valid broadcast content",
+    }
+    sub_res = client.post("/review/submit", json=good_payload)
+    assert sub_res.status_code == 201, sub_res.text
+    review_id = sub_res.json()["id"]
+
+    dec_res = client.post(
+        f"/review/{review_id}/decision",
+        json={"decision": "approved", "reviewer_notes": "Approved by Health Director"},
+    )
+    assert dec_res.status_code == 200, dec_res.text
+    assert dec_res.json()["status"] == "approved"
+    assert dec_res.json()["reviewed_at"] is not None
+
+
+def test_api_tone_improvement_offline_fallback_and_sms_limit():
+    """Verify POST /ai/improve-tone offline fallback and strict SMS 160-char cap."""
+    payload = {
+        "content": "Health camp for child vaccination this Sunday at Gandhi Community Hall. Please bring your family and follow safety steps.",
+        "target_tone": "Urgent",
+        "channel": "SMS",
+    }
+    response = client.post("/ai/improve-tone", json=payload)
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert data["provider"] == "offline-fallback"
+    assert data["is_fallback"] is True
+    assert data["target_tone"] == "Urgent"
+    assert data["channel"] == "SMS"
+    assert len(data["improved_content"]) <= 160
+    assert data["character_count"] <= 160
+    assert len(data["suggestions"]) > 0
+    assert "1800-000-111" in data["improved_content"]
+
+
+def test_api_tone_improvement_mocked_openai():
+    """Verify POST /ai/improve-tone with mocked external AI provider."""
+    mock_choice = MagicMock()
+    mock_choice.message.content = "URGENT: Free infant vaccination camp this Sunday. Call 1800-000-111 now."
+
+    mock_completion = MagicMock()
+    mock_completion.choices = [mock_choice]
+
+    with patch("app.core.config.settings.API_KEY", "sk-mock-valid-openai-key-1234567890abcdef"):
+        with patch("openai.OpenAI") as mock_openai_cls:
+            mock_client_instance = MagicMock()
+            mock_client_instance.chat.completions.create.return_value = mock_completion
+            mock_openai_cls.return_value = mock_client_instance
+
+            payload = {
+                "content": "Vaccination camp on Sunday.",
+                "target_tone": "Urgent",
+                "channel": "SMS",
+            }
+            response = client.post("/ai/improve-tone", json=payload)
+            assert response.status_code == 200, response.text
+            data = response.json()
+
+            assert data["provider"] == "openai"
+            assert data["is_fallback"] is False
+            assert "URGENT" in data["improved_content"]
+            assert data["character_count"] <= 160
+
+
+def test_api_ai_provider_error_retry_and_graceful_fallback():
+    """Verify finite timeout/retry and graceful offline fallback when provider throws transient errors."""
+    with patch("app.core.config.settings.API_KEY", "sk-mock-valid-openai-key-1234567890abcdef"):
+        with patch("openai.OpenAI") as mock_openai_cls:
+            mock_client_instance = MagicMock()
+            # Simulate network timeout / API error
+            mock_client_instance.chat.completions.create.side_effect = Exception("Connection timeout to sk-mock-valid-openai-key")
+            mock_openai_cls.return_value = mock_client_instance
+
+            payload = {
+                "prompt": "Urgent flood advisory",
+                "channel": "SMS",
+                "tone": "Urgent",
+            }
+            # Should NOT crash with 500; should gracefully fallback to offline generator
+            response = client.post("/ai/generate", json=payload)
+            assert response.status_code == 201, response.text
+            data = response.json()
+            assert data["provider"] == "offline-fallback"
+            assert data["is_fallback"] is True
+            assert "1800-000-111" in data["content"]
+
+

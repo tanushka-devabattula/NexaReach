@@ -11,6 +11,9 @@ from app.models.models import (
     AIContentHistory,
     ContentReview,
     TranslationRecord,
+    ComplianceRule,
+    ContentVariant,
+    CampaignContent,
 )
 
 __all__ = [
@@ -26,4 +29,7 @@ __all__ = [
     "AIContentHistory",
     "ContentReview",
     "TranslationRecord",
+    "ComplianceRule",
+    "ContentVariant",
+    "CampaignContent",
 ]

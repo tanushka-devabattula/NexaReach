@@ -1,11 +1,15 @@
 from datetime import datetime
+import logging
 import os
 import re
+import time
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.models import AIContentHistory
 from app.schemas.ai import AIGenerateRequest, AIGenerateResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _generate_offline_variations(prompt: str, channel: str, tone: str, count: int = 2) -> list[str]:
@@ -130,7 +134,7 @@ def generate_content(request: AIGenerateRequest, db: Session | None = None) -> A
     if api_key and not api_key.startswith("replace-") and len(api_key) > 20:
         try:
             from openai import OpenAI
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=10.0)
             prompt_instruction = (
                 f"You are a public awareness mass communication specialist for the NexaReach platform. "
                 f"Generate a {request.tone} message for the channel '{request.channel}' regarding: '{request.prompt}'. "
@@ -138,24 +142,38 @@ def generate_content(request: AIGenerateRequest, db: Session | None = None) -> A
                 f"Keep length appropriate for the channel (SMS < 160 chars, WhatsApp formatted with emojis, Email with Subject). "
                 f"Include emergency helpline placeholder '1800-000-111' where relevant."
             )
-            response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You create impactful, verified public awareness messages."},
-                    {"role": "user", "content": prompt_instruction}
-                ],
-                max_tokens=300,
-                temperature=0.7,
-                n=request.variations or 1,
-            )
-            choices = [c.message.content.strip() for c in response.choices if c.message.content]
-            if choices:
-                primary_content = choices[0]
-                variations = choices
-                provider = "openai"
-                is_fallback = False
-                model_name = "gpt-3.5-turbo"
-        except Exception:
+            for attempt in range(2 + 1):
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "You create impactful, verified public awareness messages."},
+                            {"role": "user", "content": prompt_instruction}
+                        ],
+                        max_tokens=300,
+                        temperature=0.7,
+                        n=request.variations or 1,
+                        timeout=10.0,
+                    )
+                    choices = [c.message.content.strip() for c in response.choices if c.message.content]
+                    if choices:
+                        primary_content = choices[0]
+                        variations = choices
+                        provider = "openai"
+                        is_fallback = False
+                        model_name = "gpt-3.5-turbo"
+                    break
+                except Exception as err:
+                    if attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                    else:
+                        safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(err))
+                        logger.warning("OpenAI content generation failed after retries: %s", safe_msg)
+                        provider = "offline-fallback"
+                        is_fallback = True
+        except Exception as e:
+            safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(e))
+            logger.warning("Failed to initialize OpenAI client for content generation: %s", safe_msg)
             # Fall back to offline generator on any error
             provider = "offline-fallback"
             is_fallback = True

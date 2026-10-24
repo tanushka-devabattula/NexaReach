@@ -77,6 +77,7 @@ export default function AIStudio() {
     LANGUAGES.map((l) => l.name)
   );
   const [transResult, setTransResult] = useState(null);
+  const [editedTranslations, setEditedTranslations] = useState({});
 
   /* ---- Personalize state ---- */
   const [persoText, setPersoText] = useState(
@@ -89,6 +90,7 @@ export default function AIStudio() {
   /* ---- Analyze state ---- */
   const [analyzeText, setAnalyzeText] = useState("");
   const [analyzeResult, setAnalyzeResult] = useState(null);
+  const [improveResult, setImproveResult] = useState(null);
 
   /* ---- Review state ---- */
   const [reviewText, setReviewText] = useState("");
@@ -231,6 +233,24 @@ export default function AIStudio() {
     }
   }
 
+  async function handleImproveTone(specificTone) {
+    setBusy(true);
+    resetResult();
+    const toneToUse = specificTone || tone;
+    try {
+      const res = await api.post("/ai/improve-tone", {
+        content: analyzeText,
+        target_tone: toneToUse,
+        channel,
+      });
+      setImproveResult(res.data);
+    } catch (err) {
+      setError(fmtErr(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /* ---- Review ---- */
   async function handleComplianceCheck() {
     setBusy(true);
@@ -344,8 +364,24 @@ export default function AIStudio() {
   /*  RENDER HELPERS                                                  */
   /* ================================================================ */
 
+  function handleTranslationChange(langCode, newText) {
+    setEditedTranslations((prev) => ({
+      ...prev,
+      [langCode]: newText,
+    }));
+  }
+
   function renderTranslationCard(tr) {
-    const isRtl = tr.is_rtl || tr.direction === "rtl";
+    const isRtl = tr.is_rtl || tr.direction === "rtl" || tr.language === "Urdu";
+    const defaultText = tr.bidi_safe_text || tr.translated_text || "";
+    const currentText =
+      editedTranslations[tr.language_code] !== undefined
+        ? editedTranslations[tr.language_code]
+        : defaultText;
+    const isEdited =
+      editedTranslations[tr.language_code] !== undefined &&
+      editedTranslations[tr.language_code] !== defaultText;
+
     return (
       <div
         className={`aist-translation-card ${isRtl ? "aist-rtl-card" : ""}`}
@@ -355,22 +391,82 @@ export default function AIStudio() {
           <span className="aist-lang-badge">
             {tr.native_name} ({tr.language})
           </span>
-          {isRtl && <span className="aist-rtl-badge">RTL</span>}
+          {isRtl && <span className="aist-rtl-badge">RTL (اردو)</span>}
           <span className="aist-provider-badge">
             {tr.is_fallback ? "Offline demo translation" : tr.provider}
           </span>
         </div>
-        <div
-          className="aist-trans-body"
-          dir={isRtl ? "rtl" : "ltr"}
-          lang={isRtl ? "ur" : undefined}
-          style={isRtl ? { fontFamily: "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif", lineHeight: 2.2, fontSize: "17px" } : {}}
-        >
-          {tr.translated_text}
+
+        {/* Editable translation field */}
+        <div className="aist-trans-edit-box">
+          <label className="aist-trans-label">
+            {isRtl ? "ترمیم شدہ ترجمہ (Editable Translation):" : "Editable Translation:"}
+          </label>
+          <textarea
+            className={`aist-trans-textarea ${isRtl ? "aist-rtl-textarea" : ""}`}
+            rows={3}
+            dir={isRtl ? "rtl" : "ltr"}
+            lang={isRtl ? "ur" : undefined}
+            value={currentText}
+            onChange={(e) => handleTranslationChange(tr.language_code, e.target.value)}
+            style={
+              isRtl
+                ? {
+                    fontFamily: "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
+                    lineHeight: 2.0,
+                    fontSize: "16px",
+                    textAlign: "right",
+                    direction: "rtl",
+                    unicodeBidi: "plaintext",
+                  }
+                : {}
+            }
+          />
         </div>
-        <button className="aist-copy-btn" onClick={() => copyText(tr.translated_text)}>
-          <Copy size={13} /> Copy
-        </button>
+
+        {/* Live formatted preview */}
+        <div className="aist-trans-preview-box">
+          <label className="aist-trans-label">
+            {isRtl ? "پیش نظارہ (RTL Preview):" : "Live Preview:"}
+          </label>
+          <div
+            className={`aist-trans-body ${isRtl ? "aist-rtl-preview" : ""}`}
+            dir={isRtl ? "rtl" : "ltr"}
+            lang={isRtl ? "ur" : undefined}
+            style={
+              isRtl
+                ? {
+                    fontFamily: "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
+                    lineHeight: 2.2,
+                    fontSize: "17px",
+                    textAlign: "right",
+                    direction: "rtl",
+                    unicodeBidi: "isolate",
+                  }
+                : {}
+            }
+          >
+            {currentText}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="aist-trans-actions">
+          <button className="aist-copy-btn" onClick={() => copyText(currentText)}>
+            <Copy size={13} /> Copy
+          </button>
+          <button className="aist-copy-btn" onClick={() => useAsContent(currentText)}>
+            <Pencil size={13} /> Use
+          </button>
+          {isEdited && (
+            <button
+              className="aist-copy-btn"
+              onClick={() => handleTranslationChange(tr.language_code, defaultText)}
+            >
+              <RefreshCw size={13} /> Reset
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -728,9 +824,66 @@ export default function AIStudio() {
                 </select>
               </label>
             </div>
-            <button className="ai-studio-primary" onClick={handleAnalyze} disabled={busy || !analyzeText.trim()}>
-              <BarChart3 size={15} /> {busy ? "Analyzing..." : "Analyze"}
-            </button>
+            <div className="aist-actions">
+              <button className="ai-studio-primary" onClick={handleAnalyze} disabled={busy || !analyzeText.trim()}>
+                <BarChart3 size={15} /> {busy ? "Analyzing..." : "Analyze Readability & Tone"}
+              </button>
+              <button className="aist-secondary" onClick={() => handleImproveTone()} disabled={busy || !analyzeText.trim()}>
+                <Sparkles size={14} /> {busy ? "Optimizing..." : "Improve & Rewrite"}
+              </button>
+            </div>
+
+            <div className="aist-quick-tones">
+              <span className="aist-quick-tone-label">Quick tone rewrites:</span>
+              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Urgent")} disabled={busy || !analyzeText.trim()}>
+                🚨 Urgent
+              </button>
+              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Empathetic")} disabled={busy || !analyzeText.trim()}>
+                🤝 Empathetic
+              </button>
+              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Formal")} disabled={busy || !analyzeText.trim()}>
+                🏛️ Formal
+              </button>
+              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Persuasive")} disabled={busy || !analyzeText.trim()}>
+                📢 Persuasive
+              </button>
+            </div>
+
+            {improveResult && (
+              <div className="aist-result-card aist-improve-card">
+                <div className="aist-result-meta">
+                  <span className="aist-provider-badge">
+                    {improveResult.is_fallback ? "⚡ Offline rewrite" : `✨ ${improveResult.provider}`}
+                  </span>
+                  <span>Tone: {improveResult.target_tone}</span>
+                  <span>Channel: {improveResult.channel}</span>
+                  <span>{improveResult.character_count} characters {improveResult.channel === "SMS" && "(SMS limit: 160)"}</span>
+                </div>
+                <h3>Rewritten & Improved Content</h3>
+                <div className="aist-content-block">{improveResult.improved_content}</div>
+                <div className="aist-btn-row">
+                  <button onClick={() => copyText(improveResult.improved_content)}>
+                    <Copy size={13} /> {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <button onClick={() => setAnalyzeText(improveResult.improved_content)}>
+                    <RefreshCw size={13} /> Replace Editor Text
+                  </button>
+                  <button onClick={() => useAsContent(improveResult.improved_content)}>
+                    <Pencil size={13} /> Use in other tabs
+                  </button>
+                </div>
+                {improveResult.suggestions && improveResult.suggestions.length > 0 && (
+                  <div className="aist-recommendations">
+                    <h4>Tone & Channel Optimization Applied</h4>
+                    <ul>
+                      {improveResult.suggestions.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {analyzeResult && (
               <div className="aist-result-card">

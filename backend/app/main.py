@@ -15,6 +15,9 @@ from app.models import (
     AIContentHistory,
     ContentReview,
     TranslationRecord,
+    ComplianceRule,
+    ContentVariant,
+    CampaignContent,
 )
 from app.routers import segments
 from app.routers.ai import router as ai_router

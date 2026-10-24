@@ -6,11 +6,14 @@ DB_PATH = os.path.join(BASE_DIR, "nexareach.db")
 
 
 def test_database_tables_exist():
-    """Verify all 12 tables exist after the Milestone 2 Alembic migration."""
+    """Verify all 15 tables exist after the Milestone 2 Alembic migration."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = {row[0] for row in cursor.fetchall()}
+
+    cursor.execute("PRAGMA table_info(translation_records);")
+    cols = {row[1] for row in cursor.fetchall()}
     conn.close()
 
     expected_tables = {
@@ -28,11 +31,15 @@ def test_database_tables_exist():
         "translation_records",
         "ai_content_history",
         "content_reviews",
+        "compliance_rules",
+        "content_variants",
+        "campaign_contents",
         # Alembic metadata
         "alembic_version",
     }
 
     assert expected_tables.issubset(tables), f"Missing tables: {expected_tables - tables}"
+    assert {"campaign_id", "message_id", "status"}.issubset(cols), f"Missing columns in translation_records: {cols}"
 
 
 def test_alembic_head_version():
@@ -43,7 +50,7 @@ def test_alembic_head_version():
     version = cursor.fetchone()[0]
     conn.close()
 
-    assert version == "54c0d5dbc30b", f"Expected head 54c0d5dbc30b, got {version}"
+    assert version == "0e500f4ad1da", f"Expected head 0e500f4ad1da, got {version}"
 
 
 def test_milestone_1_records_preserved():

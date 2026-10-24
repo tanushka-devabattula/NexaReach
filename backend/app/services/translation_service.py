@@ -1,5 +1,8 @@
 from datetime import datetime
+import logging
+import os
 import re
+import time
 from sqlalchemy.orm import Session
 
 from app.models.models import TranslationRecord
@@ -10,6 +13,8 @@ from app.schemas.translation import (
     BatchTranslationRequest,
     BatchTranslationResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 # Supported languages configuration (10 Indian languages + English)
 SUPPORTED_LANGUAGES: dict[str, LanguageInfo] = {
@@ -287,29 +292,49 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
     masked_text, placeholder_map = _extract_and_mask_placeholders(request.text)
 
     # Step 2: Determine if a real translation provider (OpenAI) is configured
-    import os
     openai_api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
-    use_openai = bool(openai_api_key)
+    use_openai = bool(openai_api_key and not openai_api_key.startswith("replace-") and len(openai_api_key) > 20)
 
     def _translate_via_openai(src_text: str, tgt_lang: str) -> str | None:
-        """Call OpenAI ChatCompletion for translation.
-        Returns the translated string or ``None`` on failure.
+        """Call OpenAI ChatCompletion for translation with timeout and retries.
+        Returns the translated string or None on failure.
         """
         try:
-            import openai
-            openai.api_key = openai_api_key
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": f"You are a translation assistant. Translate the given text to {tgt_lang} preserving placeholders like {{'{{' + name + '}}'}} and URLs unchanged."},
-                    {"role": "user", "content": src_text},
-                ],
-                temperature=0.0,
-                timeout=10,
-            )
-            return response.choices[0].message.content.strip()
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_api_key, timeout=10.0)
+            for attempt in range(2 + 1):
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"You are an expert multilingual translator for public awareness campaigns. "
+                                    f"Translate the text into {tgt_lang}. "
+                                    f"Strictly preserve dynamic token placeholders (like __TOKEN_P0__, __TOKEN_U0__, or {{name}}) "
+                                    f"and web URLs exactly unchanged. Return only the translated text."
+                                ),
+                            },
+                            {"role": "user", "content": src_text},
+                        ],
+                        temperature=0.0,
+                        timeout=10.0,
+                    )
+                    content = response.choices[0].message.content.strip()
+                    if content:
+                        return content
+                    return None
+                except Exception as err:
+                    if attempt < 2:
+                        time.sleep(0.5 * (attempt + 1))
+                    else:
+                        safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(err))
+                        logger.warning("OpenAI translation call failed after retries: %s", safe_msg)
+                        return None
         except Exception as e:
-            print(f"OpenAI translation failed: {e}")
+            safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(e))
+            logger.warning("Failed to initialize OpenAI client for translation: %s", safe_msg)
             return None
 
     # Step 3: Attempt real translation when possible

@@ -44,13 +44,18 @@ from tests.test_api_routers import (
     test_api_review_lifecycle_submit_and_decide,
     test_api_integrated_workflow_run,
     test_milestone_1_routes_intact,
+    test_api_approval_blocked_on_critical_issues,
+    test_api_approval_succeeds_on_valid_content,
+    test_api_tone_improvement_offline_fallback_and_sms_limit,
+    test_api_tone_improvement_mocked_openai,
+    test_api_ai_provider_error_retry_and_graceful_fallback,
 )
 
 
 def run_tests():
     phase1_tests = [
-        ("Phase 1 - Database: All 12 tables exist", test_database_tables_exist, False),
-        ("Phase 1 - Database: Alembic head version is 54c0d5dbc30b", test_alembic_head_version, False),
+        ("Phase 1 - Database: All 15 application tables exist", test_database_tables_exist, False),
+        ("Phase 1 - Database: Alembic head version is 0e500f4ad1da", test_alembic_head_version, False),
         ("Phase 1 - Database: Milestone 1 records preserved", test_milestone_1_records_preserved, False),
         ("Phase 1 - AI Service: Offline fallback & history recording", test_ai_generation_offline_fallback, True),
         ("Phase 1 - Translation: All 10 Indian languages supported", test_all_10_languages_supported, False),
@@ -80,6 +85,11 @@ def run_tests():
         ("Phase 2 - Router /review lifecycle (Submit -> DB Write -> DB Read -> Decision)", test_api_review_lifecycle_submit_and_decide, False),
         ("Phase 2 - Router POST /workflow/run (End-to-End Pipeline execution)", test_api_integrated_workflow_run, False),
         ("Phase 2 - Regression: Milestone 1 API routes intact", test_milestone_1_routes_intact, False),
+        ("Priority 1 Fix - Compliance: Approval strictly blocked on critical issues", test_api_approval_blocked_on_critical_issues, False),
+        ("Priority 1 Fix - Compliance: Approval succeeds on compliant content", test_api_approval_succeeds_on_valid_content, False),
+        ("Priority 1 Fix - Tone: POST /ai/improve-tone offline fallback & SMS cap <= 160", test_api_tone_improvement_offline_fallback_and_sms_limit, False),
+        ("Priority 1 Fix - Tone: POST /ai/improve-tone mocked AI rewrite", test_api_tone_improvement_mocked_openai, False),
+        ("Priority 1 Fix - Resilience: AI provider timeout/retry & graceful fallback", test_api_ai_provider_error_retry_and_graceful_fallback, False),
     ]
 
     all_tests = phase1_tests + phase2_tests

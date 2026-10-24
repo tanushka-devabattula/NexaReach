@@ -160,11 +160,54 @@ class TranslationRecord(Base):
     __tablename__ = "translation_records"
 
     id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
     source_text = Column(Text, nullable=False)
     source_language = Column(String(50), default="English")
     target_language = Column(String(50), nullable=False)
     translated_text = Column(Text, nullable=False)
+    status = Column(String(50), default="Auto-translated", nullable=True)
     is_rtl = Column(Boolean, default=False)
     is_fallback = Column(Boolean, default=True)
     provider = Column(String(50), default="offline-fallback")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ComplianceRule(Base):
+    __tablename__ = "compliance_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    rule_type = Column(String(50), nullable=False)  # banned_word, mandatory_phrase, max_length, etc.
+    pattern = Column(String(255), nullable=False)
+    channel = Column(String(50), nullable=True)     # SMS, WhatsApp, Email, or all
+    severity = Column(String(50), default="error", nullable=False)  # error, warning, info
+    description = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ContentVariant(Base):
+    __tablename__ = "content_variants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=True)
+    segment_id = Column(Integer, ForeignKey("segments.id"), nullable=True)
+    language = Column(String(50), default="English", nullable=False)
+    variant_text = Column(Text, nullable=False)
+    sample_audience_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CampaignContent(Base):
+    __tablename__ = "campaign_contents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
+    language = Column(String(50), default="English", nullable=False)
+    segment_id = Column(Integer, ForeignKey("segments.id"), nullable=True)
+    channel = Column(String(50), default="SMS", nullable=False)
+    content = Column(Text, nullable=False)
+    status = Column(String(50), default="draft", nullable=False)  # draft, in_review, approved, rejected
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

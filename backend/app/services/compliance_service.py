@@ -1,5 +1,6 @@
 from datetime import datetime
 import re
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.models import ContentReview
@@ -231,10 +232,32 @@ def submit_for_review(request: ReviewSubmitRequest, db: Session, user_id: int | 
 def decide_review(review_id: int, request: ReviewDecisionRequest, db: Session, reviewer_id: int | None = None) -> ContentReview | None:
     """
     Applies review decision: 'approved', 'rejected', or 'changes_requested'.
+    Blocks approval if content has critical compliance issues (severity 'error') or score < 60.
     """
     review = db.query(ContentReview).filter(ContentReview.id == review_id).first()
     if not review:
         return None
+
+    if request.decision.lower() == "approved":
+        has_critical = False
+        critical_reasons = []
+        if review.compliance_issues:
+            for issue in review.compliance_issues:
+                if isinstance(issue, dict) and issue.get("severity") == "error" and not issue.get("passed", True):
+                    has_critical = True
+                    critical_reasons.append(issue.get("message") or issue.get("rule") or "Critical compliance error")
+
+        score_too_low = review.compliance_score is not None and review.compliance_score < 60
+        if has_critical or score_too_low:
+            reasons = []
+            if has_critical:
+                reasons.append(f"unresolved critical compliance error(s): {'; '.join(critical_reasons[:2])}")
+            if score_too_low:
+                reasons.append(f"compliance score ({review.compliance_score}/100) is below the minimum required threshold of 60")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Approval blocked: {'; '.join(reasons)}.",
+            )
 
     review.status = request.decision
     review.reviewer_notes = request.reviewer_notes or review.reviewer_notes
