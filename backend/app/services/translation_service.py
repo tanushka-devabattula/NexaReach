@@ -26,7 +26,7 @@ SUPPORTED_LANGUAGES: dict[str, LanguageInfo] = {
     "Marathi": LanguageInfo(name="Marathi", code="mr", native_name="मराठी", script="Devanagari", direction="ltr", is_rtl=False),
     "Bengali": LanguageInfo(name="Bengali", code="bn", native_name="বাংলা", script="Bengali", direction="ltr", is_rtl=False),
     "Gujarati": LanguageInfo(name="Gujarati", code="gu", native_name="ગુજરાતી", script="Gujarati", direction="ltr", is_rtl=False),
-    "Malayalam": LanguageInfo(name="Malayalam", code="ml", native_name="മലയാളം", script="Malayalam", direction="ltr", is_rtl=False),
+    "Malayalam": LanguageInfo(name="Malayalam", code="ml", native_name="മലയാളം", script="Malaylam", direction="ltr", is_rtl=False),
     "Punjabi": LanguageInfo(name="Punjabi", code="pa", native_name="ਪੰਜਾਬੀ", script="Gurmukhi", direction="ltr", is_rtl=False),
     "Urdu": LanguageInfo(name="Urdu", code="ur", native_name="اردو", script="Arabic", direction="rtl", is_rtl=True),
 }
@@ -48,6 +48,51 @@ DOMAIN_PHRASES: dict[str, dict[str, str]] = {
         "take proactive steps": "सक्रिय कदम उठाएं",
         "reply stop to unsubscribe": "सदस्यता समाप्त करने के लिए STOP लिखकर उत्तर दें",
     },
+    "Urdu": {
+        "urgent advisory": "اہم اطلاع",
+        "public notice": "عوامی نوٹس",
+        "official notice": "سرکاری اطلاع",
+        "health alert": "صحت کا انتباہ",
+        "dear citizen": "محترم شہری",
+        "dear resident": "محترم رہائشی",
+        "immediate precautions recommended": "فوری احتیاطی تدابیر اختیار کرنے کی ہدایت کی جاتی ہے",
+        "stay safe": "محفوظ رہیں",
+        "call helpline": "ہیپ لائن پر کال کریں",
+        "verified guidance": "تصدیق شدہ ہدایات",
+        "protect your family": "اپنے خاندان کی حفاظت کریں",
+        "take proactive steps": "بروقت ضروری اقدامات کریں",
+        "reply stop tounsubscribe": "ان سبسکرائب کرنے کے لیے STOP لکھ کر بھیجیں",
+    },
+    "Tamil": {
+        "urgent advisory": "அவசர அறிவிப்பு",
+        "public notice": "பொது அறிவிப்பு",
+        "official notice": "அதிகாரப்பூர்வ அறிவிப்பு",
+        "health alert": "சுகாதார எச்சரிக்கை",
+        "dear citizen": "அன்பார்ந்த குடிமக்களே",
+        "dear resident": "அன்பார்ந்த குடியிருப்பாளர்களே",
+        "immediate precautions recommended": "உடனடி முன்னெச்சரிக்கை நடவடிக்கைகளை எடுக்க பரிந்துரைக்கப்படுகிறது",
+        "stay safe": "பாதுகாப்பாக இருங்கள்",
+        "call helpline": "உதவி எண்ணை அழைக்கவும்",
+        "verified guidance": "சரிபார்த்துக்கப்பட்ட வழிகாட்டுதல்",
+        "protect your family": "உங்கள் குடும்பத்தை பாதுகாக்கவும்",
+        "take proactive steps": "முன்னெச்சரிக்கை நடவடிக்கைகளை மேற்கொள்ளுங்கள்",
+        "reply stop to unsubscribe": "விலக STOP என பதிலளிக்கவும்",
+    },
+    "Kannada": {
+        "urgent advisory": "ತುರ್ತು ಸಲಹೆ",
+        "public notice": "ಸಾರ್ವಜನಿಕ ಪ್ರಕಟಣೆ",
+        "official notice": "ಅಧಿಕೃತ ಪ್ರಕಟಣೆ",
+        "health alert": "ಆರೋಗ್ಯ ಎಚ್ಚರಿಕೆ",
+        "dear citizen": "ಆತ್ಮೀಯ ನಾಗರಿಕರೇ",
+        "dear resident": "ಆತ್ಮೀಯ ನಿವಾಸಿಗಳೇ",
+        "immediate precautions recommended": "ತಕ್ಷಣದ ಮುನ್ನೆಚ್ಚರಿಕೆಗಳನ್ನು ವಹಿಸಲು ಸೂಚಿಸಲಾಗುತ್ತಿದೆ",
+        "stay safe": "ಸುರಕ್ಷಿತವಾಗಿರಿ",
+        "call helpline": "ಸಹಾಯವಾಣಿಗೆ ಕರೆ ಮಾಡಿ",
+        "verified guidance": "ದೃಢೀಕರಿಸಿದ ಮಾರ್ಗದರ್ಶನ",
+        "protect your family": "ನಿಮ್ಮ ಕುಟುಂಬವನ್ನು ರಕ್ಷಿಸಿ",
+        "take proactive steps": "ಮುನ್ನೆಚ್ಚರಿಕೆ ಕ್ರಮಗಳನ್ನು ಕೈಗೊಳ್ಳಿ",
+        "reply stop to unsubscribe": "ರದ್ದುಮಾಡಲು STOP ಎಂದು ಉತ್ತರಿಸಿ",
+    },
     "Telugu": {
         "urgent advisory": "అత్యవసర సమాచారం",
         "public notice": "ప్రజా ప్రకటన",
@@ -62,36 +107,6 @@ DOMAIN_PHRASES: dict[str, dict[str, str]] = {
         "protect your family": "మీ కుటుంబాన్ని రక్షించుకోండి",
         "take proactive steps": "ముందస్తు జాగ్రత్తలు తీసుకోండి",
         "reply stop to unsubscribe": "సబ్‌స్క్రిప్షన్ రద్దు చేయడానికి STOP అని రిప్లై ఇవ్వండి",
-    },
-    "Tamil": {
-        "urgent advisory": "அவசர அறிவிப்பு",
-        "public notice": "பொது அறிவிப்பு",
-        "official notice": "அதிகாரப்பூர்வ அறிவிப்பு",
-        "health alert": "சுகாதார எச்சரிக்கை",
-        "dear citizen": "அன்பார்ந்த குடிமக்களே",
-        "dear resident": "அன்பார்ந்த குடியிருப்பாளர்களே",
-        "immediate precautions recommended": "உடனடி முன்னெச்சரிக்கை நடவடிக்கைகளை எடுக்க பரிந்துரைக்கப்படுகிறது",
-        "stay safe": "பாதுகாப்பாக இருங்கள்",
-        "call helpline": "உதவி எண்ணை அழைக்கவும்",
-        "verified guidance": "சரிபார்த்துக்கப்பட்ட வழிகாட்டுதல்",
-        "protect your family": "உங்கள் குடும்பத்தைப் பாதுகாக்கவும்",
-        "take proactive steps": "முன்னெச்சரிக்கை நடவடிக்கைகள் மேற்கொள்ளுங்கள்",
-        "reply stop to unsubscribe": "விலக STOP என பதிலளிக்கவும்",
-    },
-    "Kannada": {
-        "urgent advisory": "ತುರ್ತು ಸಲಹೆ",
-        "public notice": "ಸಾರ್ವಜನಿಕ ಪ್ರಕಟಣೆ",
-        "official notice": "ಅಧಿಕೃತ ಪ್ರಕಟಣೆ",
-        "health alert": "ಆರೋಗ್ಯ ಎಚ್ಚರಿಕೆ",
-        "dear citizen": "ಆತ್ಮೀಯ ನಾಗರಿಕರೇ",
-        "dear resident": "ಆತ್ಮೀಯ ನಿವಾಸಿಗಳೇ",
-        "immediate precautions recommended": "ತಕ್ಷಣದ ಮುನ್ನೆಚ್ಚರಿಕೆಗಳನ್ನು ವಹಿಸಲು ಸೂಚಿಸಲಾಗಿದೆ",
-        "stay safe": "ಸುರಕ್ಷಿತವಾಗಿರಿ",
-        "call helpline": "ಸಹಾಯವಾಣಿಗೆ ಕರೆ ಮಾಡಿ",
-        "verified guidance": "ದೃಢೀಕರಿಸಿದ ಮಾರ್ಗದರ್ಶನ",
-        "protect your family": "ನಿಮ್ಮ ಕುಟುಂಬವನ್ನು ರಕ್ಷಿಸಿ",
-        "take proactive steps": "ಮುನ್ನೆಚ್ಚರಿಕೆ ಕ್ರಮಗಳನ್ನು ಕೈಗೊಳ್ಳಿ",
-        "reply stop to unsubscribe": "ರದ್ದುಮಾಡಲು STOP ಎಂದು ಉತ್ತರಿಸಿ",
     },
     "Marathi": {
         "urgent advisory": "तातडीची सूचना",
@@ -125,7 +140,7 @@ DOMAIN_PHRASES: dict[str, dict[str, str]] = {
     },
     "Gujarati": {
         "urgent advisory": "તાકીદની સલાહ",
-        "public notice": "જાહેર નોટિસ",
+        "public notice": "જહાર નોટિસ",
         "official notice": "સત્તાવાર નોટિસ",
         "health alert": "આરોગ્ય ચેતવણી",
         "dear citizen": "પ્રિય નાગરિક",
@@ -136,22 +151,22 @@ DOMAIN_PHRASES: dict[str, dict[str, str]] = {
         "verified guidance": "ચકાસાયેલ માર્ગદર્શન",
         "protect your family": "તમારા પરિવારનું રક્ષણ કરો",
         "take proactive steps": "સક્રિય પગલાં લો",
-        "reply stop to unsubscribe": "રદ કરવા માટે STOP લખી મોકલો",
+        "reply stop to unsubscribe": "રદ કરવા માટે STOP લખી મોકલવું",
     },
     "Malayalam": {
         "urgent advisory": "അടിയന്തര മുന്നറിയിപ്പ്",
         "public notice": "പൊതു അറിയിപ്പ്",
         "official notice": "ഔദ്യോഗിക അറിയിപ്പ്",
         "health alert": "ആരോഗ്യ ജാഗ്രതാ നിർദ്ദേശം",
-        "dear citizen": "പ്രിയ പൗരന്മാരെ",
-        "dear resident": "പ്രിയ താമസക്കാരെ",
+        "dear citizen": "പ്രിയ പൗരന്മാരേ",
+        "dear resident": "പ്രിയ താമസക്കാരേ",
         "immediate precautions recommended": "ഉടൻ മുൻകരുതലുകൾ സ്വീകരിക്കാൻ നിർദ്ദേശിക്കുന്നു",
         "stay safe": "സുരക്ഷിതമായിരിക്കുക",
         "call helpline": "ഹെൽപ്പ് ലൈനിൽ വിളിക്കുക",
         "verified guidance": "സ്ഥിരീകരിച്ച മാർഗ്ഗനിർദ്ദേശങ്ങൾ",
         "protect your family": "നിങ്ങളുടെ കുടുംബത്തെ സംരക്ഷിക്കുക",
-        "take proactive steps": "സജീവ നടപടികൾ സ്വീകരിക്കുക",
-        "reply stop to unsubscribe": "അൺസബ്‌സ്‌ക്രൈബ് ചെയ്യാൻ STOP എന്ന് മറുപടി നൽകുക",
+        "take proactive steps": "സജീവ നടപടികള്‍ സ്വീകരിക്കുക",
+        "reply stop to unsubscribe": "അൺസബ്സ്ക്രൈബ് ചെയ്യാൻ STOP എന്ന് മറുപടി നൽകുക",
     },
     "Punjabi": {
         "urgent advisory": "ਜ਼ਰੂਰੀ ਸਲਾਹ",
@@ -168,48 +183,42 @@ DOMAIN_PHRASES: dict[str, dict[str, str]] = {
         "take proactive steps": "ਸਰਗਰਮ ਕਦਮ ਚੁੱਕੋ",
         "reply stop to unsubscribe": "ਗਾਹਕੀ ਰੱਦ ਕਰਨ ਲਈ STOP ਲਿਖ ਕੇ ਜਵਾਬ ਦਿਓ",
     },
-    "Urdu": {
-        "urgent advisory": "ضروری اطلاع",
-        "public notice": "عوامی اطلاع",
-        "official notice": "سرکاری اطلاع",
-        "health alert": "صحت سے متعلق الرٹ",
-        "dear citizen": "محترم شہری",
-        "dear resident": "محترم رہائشی",
-        "immediate precautions recommended": "فوری احتیاطی تدابیر اختیار کرنے کی ہدایت کی جاتی ہے",
-        "stay safe": "محفوظ رہیں",
-        "call helpline": "ہیلپ لائن پر کال کریں",
-        "verified guidance": "تصدیق شدہ ہدایات",
-        "protect your family": "اپنے خاندان کی حفاظت کریں",
-        "take proactive steps": "بروقت ضروری اقدامات کریں",
-        "reply stop to unsubscribe": "ان سبسکرائب کرنے کے لیے STOP لکھ کر بھیجیں",
-    },
 }
 
+# Simple fallback sentence templates for common campaign messages with placeholders
+FALLBACK_TEMPLATES: dict[str, str] = {
+    "Urdu": "ہیلو {name}, ہماری صحت کی آگاہی تقریب میں شامل ہوں {url} پر یا {phone} پر کال کریں۔",
+    "Hindi": "नमस्ते {name}, हमारे स्वास्थ्य जागरूकता कार्यक्रम में शामिल हों {url} पर या {phone} पर कॉल करें।",
+    "Tamil": "ஹலோ {name}, எங்கள் சுகாதார விழிப்புணர்வு நிகழ்ச்சியில் சேருங்கள் {url} இல் அல்லது {phone} அழைக்கவும்.",
+    "Kannada": "ಹಲೋ {name}, ನಮ್ಮ ಆರೋಗ್ಯ ಜಾಗೃತಿಯ ಕಾರ್ಯಕ್ರಮದಲ್ಲಿ ಸೇರಿ {url} ನಲ್ಲಿ ಅಥವಾ {phone} ಅನ್ನು ಕರೆ ಮಾಡಿ.",
+    "Telugu": "హలో {name}, మా ఆరోగ్య అవగాహన కార్యక్రమంలో చేరండి {url} వద్ద లేదా {phone}కి కాల్ చేయండి.",
+    "Marathi": "हॅलो {name}, आमच्या आरोग्य जागरूकता कार्यक्रमात सहभागी व्हा {url} वर किंवा {phone} वर कॉल करा.",
+    "Bengali": "হ্যালো {name}, আমাদের স্বাস্থ্য সচেতনতামূলক অনুষ্ঠানতে যোগ দিন {url} এ অথবা {phone} তে কল করুন.",
+    "Gujarati": "હેલો {name}, અમારી સ્વાસ્થ્ય અવગતતા અભિયાનમાં જોડાઓ {url} પર અથવા {phone} પર કૉલ કરો.",
+    "Malayalam": "ഹലോ {name}, നമ്മുടെ ആരോഗ്യ ബോധ സേന പരിപാടിയിൽ ചേരൂ {url} ല്‍ അല്ലെങ്കിൽ {phone} ലെ വിളിക്കൂ.",
+    "Punjabi": "ਹੈਲੋ {name}, ਸਾਡੇ ਸਿਹਤ ਜਾਗਰੂਕਤਾ ਕਾਰਜਕ੍ਰਮ ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ {url} ’ਤੇ ਜਾਂ {phone} ’ਤੇ ਕਾਲ ਕਰੋ।",
+    "English": "Hello {name}, join our health awareness event at {url} or call {phone}.",
+}
 
 def _extract_and_mask_placeholders(text: str) -> tuple[str, dict[str, str]]:
-    """
-    Finds placeholders like {{name}} or URLs or telephone numbers and masks them
+    """Find placeholders like {{name}} or {name}, URLs and telephone numbers and mask them
     so that translation engines do not alter or translate them.
     """
     masked_text = text
     placeholder_map: dict[str, str] = {}
-
-    # Match double-curly placeholders like {{name}} or {{phone}}
-    curly_tokens = re.findall(r"\{\{[^}]+\}\}", text)
+    # Match both double-curly {{...}} and single-curly {...} placeholders
+    curly_tokens = re.findall(r"\{\{[^{}]+\}\}|\{[^{}]+\}", text)
     for idx, token in enumerate(curly_tokens):
         marker = f"__TOKEN_P{idx}__"
         placeholder_map[marker] = token
         masked_text = masked_text.replace(token, marker, 1)
-
     # Match URLs
     urls = re.findall(r"https?://[^\s]+", masked_text)
     for idx, url in enumerate(urls):
         marker = f"__TOKEN_U{idx}__"
         placeholder_map[marker] = url
         masked_text = masked_text.replace(url, marker, 1)
-
     return masked_text, placeholder_map
-
 
 def _restore_placeholders(text: str, placeholder_map: dict[str, str]) -> str:
     """Restores masked tokens back to their exact original strings."""
@@ -218,44 +227,22 @@ def _restore_placeholders(text: str, placeholder_map: dict[str, str]) -> str:
         restored = restored.replace(marker, original)
     return restored
 
-
 def _format_bidi_safe_urdu(urdu_text: str) -> str:
+    """Isolate embedded LTR tokens in Urdu text using FSI and PDI.
+    Handles placeholders, URLs, and phone/number sequences.
     """
-    Wraps embedded LTR tokens (English words, URLs, numbers, placeholders)
-    with Unicode Bidirectional Isolation characters (FSI U+2068 ... PDI U+2069)
-    so that mixed Urdu/English text, URLs, and numbers render properly in RTL context.
-    """
-    # Isolate {{placeholders}}, numbers/phones (e.g. 1800-000-111), and URLs
-    bidi_safe = urdu_text
-
-    # 1. Placeholders {{...}}
-    bidi_safe = re.sub(
-        r"(\{\{[^}]+\}\})",
-        lambda m: f"\u2068{m.group(1)}\u2069",
-        bidi_safe,
-    )
-
-    # 2. URLs
-    bidi_safe = re.sub(
-        r"(https?://[^\s]+)",
-        lambda m: f"\u2068{m.group(1)}\u2069",
-        bidi_safe,
-    )
-
-    # 3. Telephone / digits sequences like 1800-000-111
-    bidi_safe = re.sub(
-        r"(\b\d[\d\-+]{3,}\d\b)",
-        lambda m: f"\u2068{m.group(1)}\u2069",
-        bidi_safe,
-    )
-
-    return bidi_safe
-
+    patterns = [
+        r"\{\{[^{}]+\}\}",   # double-curly placeholders
+        r"\{[^{}]+\}",        # single-curly placeholders
+        r"https?://[^\s]+",    # URLs
+        r"(?<!\w)\+?[\d][\d\-+() ]{2,}\d(?!\w)",  # phone/number patterns
+    ]
+    combined = re.compile("|".join(f"(?:{p})" for p in patterns))
+    return combined.sub(lambda m: f"\u2068{m.group(0)}\u2069", urdu_text)
 
 def get_supported_languages() -> list[LanguageInfo]:
     """Returns metadata for all 10 supported Indian languages and English."""
     return list(SUPPORTED_LANGUAGES.values())
-
 
 def translate_text(request: TranslationRequest, db: Session | None = None) -> TranslationResult:
     """
@@ -265,15 +252,14 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
     whether a real provider was used (`is_fallback`) and which provider
     supplied the result.
     """
-    # Step 0: Normalise target language name
-    lang_info = SUPPORTED_LANGUAGES.get(request.target_language)
-    target_lang = request.target_language
+    from fastapi import HTTPException
+    target_key = request.target_language.strip()
+    lang_info = SUPPORTED_LANGUAGES.get(target_key)
     if not lang_info:
-        # Default to English for unknown languages
-        lang_info = SUPPORTED_LANGUAGES["English"]
-        target_lang = "English"
-
-    # English is identity translation – no processing needed
+        lang_info = next((info for info in SUPPORTED_LANGUAGES.values() if info.code.lower() == target_key.lower()), None)
+    if not lang_info:
+        raise HTTPException(status_code=400, detail=f"Unsupported target language: {request.target_language}")
+    target_lang = lang_info.name
     if target_lang == "English":
         return TranslationResult(
             language="English",
@@ -287,14 +273,9 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
             bidi_safe_text=request.text,
             placeholders_preserved=re.findall(r"{{[^}]+}}", request.text),
         )
-
-    # Step 1: Mask placeholders, URLs and phone numbers so they are not altered
     masked_text, placeholder_map = _extract_and_mask_placeholders(request.text)
-
-    # Step 2: Determine if a real translation provider (OpenAI) is configured
     openai_api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
     use_openai = bool(openai_api_key and not openai_api_key.startswith("replace-") and len(openai_api_key) > 20)
-
     def _translate_via_openai(src_text: str, tgt_lang: str) -> str | None:
         """Call OpenAI ChatCompletion for translation with timeout and retries.
         Returns the translated string or None on failure.
@@ -302,20 +283,17 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
         try:
             from openai import OpenAI
             client = OpenAI(api_key=openai_api_key, timeout=10.0)
-            for attempt in range(2 + 1):
+            for attempt in range(3):
                 try:
                     response = client.chat.completions.create(
                         model="gpt-3.5-turbo",
                         messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    f"You are an expert multilingual translator for public awareness campaigns. "
-                                    f"Translate the text into {tgt_lang}. "
-                                    f"Strictly preserve dynamic token placeholders (like __TOKEN_P0__, __TOKEN_U0__, or {{name}}) "
-                                    f"and web URLs exactly unchanged. Return only the translated text."
-                                ),
-                            },
+                            {"role": "system", "content": (
+                                f"You are an expert multilingual translator for public awareness campaigns. "
+                                f"Translate the text into {tgt_lang}. "
+                                f"Strictly preserve dynamic token placeholders (like __TOKEN_P0__, __TOKEN_U0__, or {{name}}) "
+                                f"and web URLs exactly unchanged. Return only the translated text."
+                            )},
                             {"role": "user", "content": src_text},
                         ],
                         temperature=0.0,
@@ -336,8 +314,6 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
             safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(e))
             logger.warning("Failed to initialize OpenAI client for translation: %s", safe_msg)
             return None
-
-    # Step 3: Attempt real translation when possible
     if use_openai:
         real_translation = _translate_via_openai(masked_text, target_lang)
         if real_translation:
@@ -348,15 +324,20 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
             final_translated = None
     else:
         final_translated = None
-
-    # Step 4: Offline glossary fallback (always executed if real translation not obtained)
     if final_translated is None:
         translated_working = masked_text
         glossary = DOMAIN_PHRASES.get(target_lang, {})
         for en_phrase, target_phrase in glossary.items():
             pattern = re.compile(re.escape(en_phrase), re.IGNORECASE)
             translated_working = pattern.sub(target_phrase, translated_working)
-        # Add canned message skeletons for urgent alerts / public notices
+        if translated_working == masked_text:
+            tmpl = FALLBACK_TEMPLATES.get(target_lang)
+            if tmpl:
+                fmt_kwargs = {k.strip("{} "): v for k, v in placeholder_map.items()}
+                try:
+                    translated_working = tmpl.format(**fmt_kwargs)
+                except Exception:
+                    translated_working = tmpl
         if target_lang == "Urdu":
             if "URGENT" in request.text.upper() or "ALERT" in request.text.upper():
                 translated_working = f"ضروری انتباہ: {translated_working}۔ براہ کرم مستند ہدایات پر عمل کریں اور ہیلپ لائن 1800-000-111 پر رابطہ کریں۔"
@@ -371,13 +352,9 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
         final_translated = _restore_placeholders(translated_working, placeholder_map)
         provider_name = "offline-fallback"
         is_fallback = True
-
-    # Step 5: Prepare bidi‑safe text for RTL languages
     bidi_safe = final_translated
     if lang_info.is_rtl:
         bidi_safe = _format_bidi_safe_urdu(final_translated)
-
-    # Step 6: Record in DB if a session is supplied
     if db is not None:
         try:
             rec = TranslationRecord(
@@ -394,7 +371,6 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
             db.commit()
         except Exception:
             db.rollback()
-
     return TranslationResult(
         language=lang_info.name,
         language_code=lang_info.code,
@@ -407,7 +383,6 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
         bidi_safe_text=bidi_safe,
         placeholders_preserved=list(placeholder_map.values()),
     )
-
 
 def batch_translate(request: BatchTranslationRequest, db: Session | None = None) -> BatchTranslationResponse:
     """

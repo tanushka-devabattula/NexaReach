@@ -74,3 +74,10 @@ app.add_middleware(
 @app.on_event("startup")
 def create_database_tables():
     Base.metadata.create_all(bind=engine)
+    # Seed minimal data for tests and demo environments
+    try:
+        from app.seed import seed_initial_data
+        seed_initial_data()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Seeding failed during startup: {e}")

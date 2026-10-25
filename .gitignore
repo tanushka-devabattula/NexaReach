@@ -25,3 +25,19 @@ frontend/dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local database backups
+*.db.backup*
+*.db.bak
+*.db.backup_m1
+*.db.backup_m2_pre
+
+# Local helper scripts used for debugging
+backend/check_db.py
+backend/inspect_db.py
+backend/run_migrations.py
+
+# Python virtual environments and cache
+backend/.venv/
+__pycache__/
+*.py[cod]

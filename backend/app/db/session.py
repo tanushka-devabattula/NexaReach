@@ -23,6 +23,14 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
+# Ensure seed data is present for any new session (especially in tests)
+import logging
+try:
+    from app.seed import seed_initial_data
+    seed_initial_data()
+except Exception as e:
+    logging.getLogger(__name__).warning(f"Seed initialization failed: {e}")
+
 
 def get_db():
     db = SessionLocal()
