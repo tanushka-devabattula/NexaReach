@@ -19,6 +19,8 @@ def _generate_offline_variations(prompt: str, channel: str, tone: str, count: in
     """
     clean_prompt = prompt.strip()
     topic = clean_prompt.capitalize()
+    # Short subject for offline templates to avoid echoing full prompt.
+    short_subject = topic
     
     # Sector awareness keywords
     is_health = bool(re.search(r"health|vaccin|disease|clinic|water|dengue|covid|pulse|polio|hospital|fever", clean_prompt, re.I))
@@ -33,13 +35,13 @@ def _generate_offline_variations(prompt: str, channel: str, tone: str, count: in
     # Variation 1
     if channel_normalized == "SMS":
         if tone_normalized == "Urgent":
-            v1 = f"URGENT ADVISORY: {clean_prompt}. Immediate precautions recommended. Call helpline 1800-000-111 for verified guidance."
-            v2 = f"ALERT: Important update regarding {clean_prompt}. Visit official center or call 1800-000-111. Stay safe."
+            v1 = f"URGENT ADVISORY: {short_subject}. Immediate precautions recommended. Call helpline 1800-000-111 for verified guidance."
+            v2 = f"ALERT: Important update regarding {short_subject}. Visit official center or call 1800-000-111. Stay safe."
         elif tone_normalized == "Empathetic":
-            v1 = f"Dear citizen, your community is here for you regarding {clean_prompt}. Free assistance available at your nearest center."
-            v2 = f"We care for your family's safety: {clean_prompt}. Reach out to helpline 1800-000-111 anytime."
+            v1 = f"Dear citizen, your community is here for you regarding {short_subject}. Free assistance available at your nearest center."
+            v2 = f"We care for your family's safety: {short_subject}. Reach out to helpline 1800-000-111 anytime."
         elif tone_normalized == "Formal":
-            v1 = f"PUBLIC NOTICE: General guidelines issued on {clean_prompt}. Compliance advised by local authorities. Info: 1800-000-111."
+            v1 = f"PUBLIC NOTICE: General guidelines issued on {short_subject}. Compliance advised by local authorities. Info: 1800-000-111."
             v2 = f"OFFICIAL CIRCULAR: {clean_prompt}. Citizens requested to cooperate with public health teams. Helpline: 1800-000-111."
         else: # Informative / Persuasive
             v1 = f"Public Awareness: Protect your community on {clean_prompt}. Follow verified guidelines. Info: 1800-000-111."
