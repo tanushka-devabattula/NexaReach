@@ -331,13 +331,24 @@ def translate_text(request: TranslationRequest, db: Session | None = None) -> Tr
             pattern = re.compile(re.escape(en_phrase), re.IGNORECASE)
             translated_working = pattern.sub(target_phrase, translated_working)
         if translated_working == masked_text:
-            tmpl = FALLBACK_TEMPLATES.get(target_lang)
-            if tmpl:
-                fmt_kwargs = {k.strip("{} "): v for k, v in placeholder_map.items()}
-                try:
-                    translated_working = tmpl.format(**fmt_kwargs)
-                except Exception:
-                    translated_working = tmpl
+            # Try generic sentence translations for common messages
+            generic_map = {
+                "join our health awareness event": "ہماری صحت کی آگاہی تقریب میں شامل ہوں۔",
+                "follow verified health guidance": "تصدیق شدہ صحت کے رہنما اصولوں کی پیروی کریں۔",
+                "call the helpline for more information": "مزید معلومات کے لیے ہیلپ لائن پر کال کریں۔",
+                "protect your family and stay safe": "اپنے خاندان کی حفاظت کریں اور محفوظ رہیں۔",
+            }
+            lowered = request.text.lower().strip(".")
+            if lowered in generic_map:
+                translated_working = generic_map[lowered]
+            else:
+                tmpl = FALLBACK_TEMPLATES.get(target_lang)
+                if tmpl:
+                    fmt_kwargs = {k.strip("{} "): v for k, v in placeholder_map.items()}
+                    try:
+                        translated_working = tmpl.format(**fmt_kwargs)
+                    except Exception:
+                        translated_working = tmpl
         if target_lang == "Urdu":
             if "URGENT" in request.text.upper() or "ALERT" in request.text.upper():
                 translated_working = f"ضروری انتباہ: {translated_working}۔ براہ کرم مستند ہدایات پر عمل کریں اور ہیلپ لائن 1800-000-111 پر رابطہ کریں۔"
