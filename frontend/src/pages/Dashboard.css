@@ -86,8 +86,14 @@
 
 .dashboard-nav-item:hover,
 .dashboard-nav-item.active {
-  background: #f0edff;
-  color: #6246ed;
+  background: #e8e0ff;
+  color: #5b34e0;
+}
+/* active navigation highlight */
+.dashboard-nav-item.active {
+  font-weight: 700;
+  border-left: 4px solid #5b34e0;
+  padding-left: 8px; /* compensate for border */
 }
 
 .dashboard-sidebar-bottom {
@@ -663,5 +669,58 @@
   .campaigns-form textarea,
   .campaigns-form select {
     font-size: 14px;
+  }
+}
+
+/* ==== Design enhancements (appended) ==== */
+
+/* Responsive card grid: two columns on wide screens, single column on narrow */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+/* Consistent card layout and height */
+.dashboard-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+  padding: 24px 22px 20px;
+}
+
+/* Icon spacing */
+.dashboard-card-icon {
+  margin-bottom: 10px;
+}
+
+/* Focus outline for accessibility */
+.dashboard-card:focus-visible,
+.dashboard-nav-item:focus-visible {
+  outline: 2px solid #5b34e0;
+  outline-offset: 2px;
+}
+
+/* Mobile adjustments: sidebar collapses */
+@media (max-width: 768px) {
+  .dashboard-layout {
+    flex-direction: column;
+  }
+  .dashboard-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 12px 8px;
+  }
+  .dashboard-brand {
+    flex: 1 0 auto;
+  }
+  .dashboard-nav {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .dashboard-main {
+    padding: 20px 12px;
   }
 }
