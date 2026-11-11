@@ -41,3 +41,23 @@ backend/run_migrations.py
 backend/.venv/
 __pycache__/
 *.py[cod]
+
+# Temporary backups
+backup-before-fix/
+*.before_retry
+*.before_retry_fix
+*.backup
+
+# Local agent configuration
+.agent/
+
+# Test and local configuration
+backend/alembic_test.ini
+
+backend/approve.py
+backend/fix_campaign.py
+backend/create_admin.py
+# Local backup artifacts
+*.bak
+*.before-*
+backups/

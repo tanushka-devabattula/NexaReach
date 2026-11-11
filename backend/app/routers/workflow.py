@@ -1,120 +1,126 @@
-from fastapi import APIRouter, Depends, status
+"""One-click workflow used by the AI Studio "Workflow" tab.
+
+Generate -> Translate -> Personalize (optional) -> Tone/Readability -> Compliance -> Review.
+Every step is real. If a step cannot work (for example no API key) the endpoint
+returns a clear error instead of fake output.
+"""
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.ai import AIGenerateRequest
 from app.schemas.analysis import ToneAnalysisRequest
 from app.schemas.personalization import SegmentVariantRequest
-from app.schemas.review import ComplianceCheckRequest, ReviewSubmitRequest
+from app.schemas.review import ComplianceCheckRequest, ReviewResponse, ReviewSubmitRequest
 from app.schemas.translation import BatchTranslationRequest
-from app.schemas.workflow import (
-    WorkflowExecutionResponse,
-    WorkflowRunRequest,
-)
-from app.services.ai_service import generate_content
+from app.services.ai_service import AIProviderError, generate_content
 from app.services.analysis_service import analyze_tone_and_readability
 from app.services.compliance_service import check_compliance, submit_for_review
-from app.services.personalization_service import generate_segment_variants
-from app.services.translation_service import batch_translate
+from app.services.personalization_service import NotFoundError, generate_segment_variants
+from app.services.translation_service import TranslationProviderError, batch_translate
 
-router = APIRouter(prefix="/workflow", tags=["Campaign Content Workflow"])
+router = APIRouter(prefix="/workflow", tags=["Workflow"])
 
 
-@router.post(
-    "/run",
-    response_model=WorkflowExecutionResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Run integrated Generate -> Translate -> Personalize -> Tone -> Review pipeline",
-)
-def run_integrated_campaign_workflow(
-    request: WorkflowRunRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Executes the end-to-end Milestone 2 workflow:
-    1. Generate: AI generation with channel and tone adaptation (offline fallback if no key).
-    2. Translate: Batch translation into selected Indian languages (with Urdu RTL bidi isolation).
-    3. Personalize: Cohort variant generation if segment_id is specified.
-    4. Tone & Readability: Automated Flesch score, clarity metrics, and tone classification.
-    5. Compliance: Rule check for channel limits, prohibited words, and mandatory opt-outs.
-    6. Review: Automatically registers a ContentReview record if auto_submit_for_review is True.
-    """
-    # Step 1: Content Generation
-    gen_req = AIGenerateRequest(
-        prompt=request.prompt,
-        channel=request.channel,
-        tone=request.tone,
-        campaign_id=request.campaign_id,
-        user_id=request.user_id,
-        variations=2,
-    )
-    generated = generate_content(gen_req, db=db)
+class WorkflowRunPayload(BaseModel):
+    prompt: str = Field(default="", description="Topic / instruction for the AI")
+    channel: str = "SMS"
+    tone: str = "Informative"
+    category: str = "Public Health"
+    target_languages: List[str] = Field(default_factory=list)
+    segment_id: Optional[int] = None
+    campaign_id: Optional[int] = None
+    auto_submit_for_review: bool = True
 
-    # Step 2: Multilingual Translation
-    trans_req = BatchTranslationRequest(
-        text=generated.content,
-        target_languages=request.target_languages,
-        source_language="English",
-    )
-    translations = batch_translate(trans_req, db=db)
 
-    # Step 3: Personalization & Segment Variants (if segment_id provided)
-    personalization_res = None
-    if request.segment_id:
-        try:
-            seg_req = SegmentVariantRequest(
-                base_text=generated.content,
-                segment_id=request.segment_id,
-                sample_limit=5,
-            )
-            personalization_res = generate_segment_variants(seg_req, db=db)
-        except Exception:
-            personalization_res = None
-
-    # Step 4: Tone and Readability Analysis
-    analysis_req = ToneAnalysisRequest(
-        content=generated.content,
-        channel=request.channel,
-        target_tone=request.tone,
-    )
-    analysis = analyze_tone_and_readability(analysis_req)
-
-    # Step 5: Compliance Check
-    comp_req = ComplianceCheckRequest(
-        content=generated.content,
-        channel=request.channel,
-        language="English",
-    )
-    compliance = check_compliance(comp_req)
-
-    # Step 6: Review Registration
-    review_res = None
-    if request.auto_submit_for_review:
-        sub_req = ReviewSubmitRequest(
-            campaign_id=request.campaign_id,
-            content=generated.content,
-            channel=request.channel,
-            language="English",
-            reviewer_notes=request.reviewer_notes or "Auto-generated from workflow pipeline.",
+@router.post("/run", summary="Run the full content workflow")
+def run_workflow(payload: WorkflowRunPayload, db: Session = Depends(get_db)):
+    try:
+        generated = generate_content(
+            prompt=payload.prompt,
+            category=payload.category,
+            tone=payload.tone,
+            channel=payload.channel,
+            db=db,
         )
-        review_model = submit_for_review(sub_req, db=db, user_id=request.user_id)
-        # Store readability metrics on the review model as well
-        try:
-            review_model.readability_metrics = analysis.model_dump()
-            db.commit()
-            db.refresh(review_model)
-        except Exception:
-            db.rollback()
+        text = generated["content"]
 
-        review_res = review_model
+        if payload.target_languages:
+            translations = batch_translate(
+                BatchTranslationRequest(text=text, target_languages=payload.target_languages), db=db
+            )
+            if not translations.results:
+                reasons = list(dict.fromkeys(e.detail for e in translations.errors))
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=" | ".join(reasons) or "No translations were produced.",
+                )
+            translations_out = translations.model_dump(mode="json")
+        else:
+            translations_out = {"source_text": text, "source_language": "English", "results": [], "errors": []}
 
-    return WorkflowExecutionResponse(
-        status="completed",
-        generated_content=generated,
-        translations=translations,
-        personalization=personalization_res,
-        analysis=analysis,
-        compliance=compliance,
-        review=review_res,
-    )
+        personalization_out = None
+        if payload.segment_id is not None:
+            personalization_out = generate_segment_variants(
+                SegmentVariantRequest(base_text=text, segment_id=payload.segment_id, sample_limit=5), db
+            )
 
+        analysis = analyze_tone_and_readability(
+            ToneAnalysisRequest(content=text, channel=payload.channel, target_tone=payload.tone)
+        )
+        compliance = check_compliance(ComplianceCheckRequest(content=text, channel=payload.channel))
+
+        review_out = None
+        translation_reviews = []
+
+        if payload.auto_submit_for_review:
+            review = submit_for_review(
+                ReviewSubmitRequest(
+                    content=text,
+                    channel=payload.channel,
+                    campaign_id=payload.campaign_id,
+                ),
+                db=db,
+            )
+            review_out = ReviewResponse.model_validate(review).model_dump(mode="json")
+
+            # Each successful translation gets its own linked campaign draft
+            # and compliance review when a campaign has been selected.
+            if payload.campaign_id is not None:
+                for translated in translations_out.get("results", []):
+                    translated_review = submit_for_review(
+                        ReviewSubmitRequest(
+                            content=translated["translated_text"],
+                            channel=payload.channel,
+                            language=translated["language"],
+                            campaign_id=payload.campaign_id,
+                        ),
+                        db=db,
+                    )
+                    review_data = ReviewResponse.model_validate(
+                        translated_review
+                    ).model_dump(mode="json")
+                    translation_reviews.append({
+                        "language": translated["language"],
+                        **review_data,
+                    })
+
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    except NotFoundError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    except (AIProviderError, TranslationProviderError) as err:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
+
+    return {
+        "status": "success",
+        "generated_content": generated,
+        "translations": translations_out,
+        "personalization": personalization_out,
+        "analysis": analysis.model_dump(mode="json"),
+        "compliance": compliance.model_dump(mode="json"),
+        "review": review_out,
+        "translation_reviews": translation_reviews,
+    }

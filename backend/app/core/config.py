@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./nexareach.db"
     SECRET_KEY: str = "change-this-before-production"
     API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    TRANSLATION_TIMEOUT: float = 30.0
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     model_config = SettingsConfigDict(

@@ -43,14 +43,25 @@ def test_database_tables_exist():
 
 
 def test_alembic_head_version():
-    """Verify alembic version table holds the new Milestone 2 migration head."""
+    """The database must be at the NEWEST migration (read from the migration files)."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    cfg = Config(os.path.join(BASE_DIR, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(BASE_DIR, "alembic"))
+    heads = ScriptDirectory.from_config(cfg).get_heads()
+    assert len(heads) == 1, f"Migrations have split into several heads: {heads}"
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT version_num FROM alembic_version;")
     version = cursor.fetchone()[0]
     conn.close()
 
-    assert version == "0e500f4ad1da", f"Expected head 0e500f4ad1da, got {version}"
+    assert version == heads[0], (
+        f"Database is at {version} but the newest migration is {heads[0]}. "
+        "Run: alembic upgrade head  (ask before touching a database you care about)"
+    )
 
 
 def test_milestone_1_records_preserved():
@@ -71,4 +82,3 @@ def test_milestone_1_records_preserved():
     assert counts["campaigns"] >= 2, f"Campaigns were lost: {counts['campaigns']}"
     assert counts["templates"] >= 2, f"Templates were lost: {counts['templates']}"
     assert counts["messages"] >= 1, f"Messages were lost: {counts['messages']}"
-

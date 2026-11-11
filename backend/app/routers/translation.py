@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -10,58 +10,43 @@ from app.schemas.translation import (
     TranslationResult,
 )
 from app.services.translation_service import (
+    TranslationProviderError,
     batch_translate,
     get_supported_languages,
     translate_text,
 )
 
-router = APIRouter(prefix="/translate", tags=["Multilingual Translation"])
+router = APIRouter(tags=["Translation"])
 
 
-@router.get(
-    "/languages",
-    response_model=list[LanguageInfo],
-    summary="List all supported Indian languages",
-)
+@router.get("/translate/languages", response_model=list[LanguageInfo], summary="Supported languages")
 def list_languages():
-    """
-    Returns list of 10 supported Indian languages (Hindi, Kannada, Tamil,
-    Telugu, Marathi, Bengali, Gujarati, Malayalam, Punjabi, Urdu) + English,
-    including directional metadata (is_rtl and direction='rtl' for Urdu).
-    """
     return get_supported_languages()
 
 
-@router.post(
-    "",
-    response_model=TranslationResult,
-    status_code=status.HTTP_200_OK,
-    summary="Translate message into a target Indian language",
-)
-def translate_message(
-    request: TranslationRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Translates a message while preserving placeholders like {{name}} and URLs.
-    Includes bidirectional safe formatting (bidi_safe_text) and RTL flags for Urdu.
-    """
-    return translate_text(request, db=db)
+@router.post("/translate", response_model=TranslationResult, summary="Translate text into one language")
+@router.post("/ai/translate", response_model=TranslationResult, include_in_schema=False)
+@router.post("/ai/content/translate", response_model=TranslationResult, include_in_schema=False)
+def translate_endpoint(payload: TranslationRequest, db: Session = Depends(get_db)):
+    try:
+        return translate_text(payload, db=db)
+    except ValueError as err:  # empty text or unsupported language
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    except TranslationProviderError as err:  # provider missing / failed: say so honestly
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
 
 
-@router.post(
-    "/batch",
-    response_model=BatchTranslationResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Batch translate message into multiple Indian languages",
-)
-def batch_translate_message(
-    request: BatchTranslationRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Translates a message across multiple Indian languages simultaneously
-    (defaults to all 10 supported Indian languages if not specified).
-    """
-    return batch_translate(request, db=db)
-
+@router.post("/translate/batch", response_model=BatchTranslationResponse, summary="Translate one text into many languages")
+@router.post("/ai/translate/bulk", response_model=BatchTranslationResponse, include_in_schema=False)
+def translate_batch_endpoint(payload: BatchTranslationRequest, db: Session = Depends(get_db)):
+    try:
+        response = batch_translate(payload, db=db)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+    if not response.results:  # nothing worked: report the real reason
+        reasons = list(dict.fromkeys(e.detail for e in response.errors))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=" | ".join(reasons) or "No translations were produced.",
+        )
+    return response

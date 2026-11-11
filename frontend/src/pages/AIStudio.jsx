@@ -73,15 +73,13 @@ export default function AIStudio() {
   const [transText, setTransText] = useState("");
   const [targetLang, setTargetLang] = useState("Hindi");
   const [batchMode, setBatchMode] = useState(false);
-  const [batchLangs, setBatchLangs] = useState(
-    LANGUAGES.map((l) => l.name)
-  );
+  const [batchLangs, setBatchLangs] = useState(LANGUAGES.map((l) => l.name));
   const [transResult, setTransResult] = useState(null);
   const [editedTranslations, setEditedTranslations] = useState({});
 
   /* ---- Personalize state ---- */
   const [persoText, setPersoText] = useState(
-    "Dear {{name}}, important update for {{preferred_language}}-speaking community."
+    "Dear {{name}}, important update for {{preferred_language}}-speaking community.",
   );
   const [persoMemberId, setPersoMemberId] = useState("");
   const [persoSegmentId, setPersoSegmentId] = useState("");
@@ -105,6 +103,43 @@ export default function AIStudio() {
   const [wfLangs, setWfLangs] = useState(LANGUAGES.map((l) => l.name));
   const [wfResult, setWfResult] = useState(null);
 
+  /* ---- Campaign content state ---- */
+  const [campaigns, setCampaigns] = useState([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [savingContent, setSavingContent] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [savedContentId, setSavedContentId] = useState(null);
+
+  /* ---- Load campaigns ---- */
+  useEffect(() => {
+    let active = true;
+
+    async function loadCampaigns() {
+      try {
+        const res = await api.get("/campaigns");
+        const list = Array.isArray(res.data) ? res.data : [];
+
+        if (active) {
+          setCampaigns(list);
+          if (list.length > 0) {
+            setSelectedCampaignId(String(list[0].id));
+          }
+        }
+      } catch (err) {
+        if (active) {
+          setSaveMessage(
+            err.response?.data?.detail || "Unable to load campaigns.",
+          );
+        }
+      }
+    }
+
+    loadCampaigns();
+
+    return () => {
+      active = false;
+    };
+  }, []);
   /* ---- History state ---- */
   const [history, setHistory] = useState([]);
 
@@ -270,24 +305,34 @@ export default function AIStudio() {
   }
 
   async function handleSubmitForReview() {
-    setBusy(true);
-    resetResult();
-    try {
-      const res = await api.post("/review/submit", {
-        content: reviewText,
-        channel,
-        language: "English",
-        reviewer_notes: reviewNotes || null,
-      });
-      setReviewResult({ type: "submitted", data: res.data });
-      loadReviewList();
-    } catch (err) {
-      setError(fmtErr(err));
-    } finally {
-      setBusy(false);
-    }
+  if (!reviewText.trim()) {
+    setError("Please enter content for review.");
+    return;
   }
 
+  setBusy(true);
+  resetResult();
+
+  try {
+    const res = await api.post("/review/submit", {
+      content: reviewText.trim(),
+      channel,
+      language: "English",
+      campaign_id: selectedCampaignId
+        ? Number(selectedCampaignId)
+        : null,
+      campaign_content_id: savedContentId || null,
+      reviewer_notes: reviewNotes || null,
+    });
+
+    setReviewResult({ type: "submitted", data: res.data });
+    await loadReviewList();
+  } catch (err) {
+    setError(fmtErr(err));
+  } finally {
+    setBusy(false);
+  }
+}
   async function loadReviewList() {
     try {
       const res = await api.get("/review/list?limit=10");
@@ -320,6 +365,7 @@ export default function AIStudio() {
         tone,
         target_languages: wfLangs,
         segment_id: wfSegmentId ? Number(wfSegmentId) : null,
+        campaign_id: selectedCampaignId ? Number(selectedCampaignId) : null,
         auto_submit_for_review: true,
       });
       setWfResult(res.data);
@@ -330,6 +376,53 @@ export default function AIStudio() {
     }
   }
 
+  /* ---- Save content to campaign ---- */
+  async function saveCampaignContent(content, language = "English") {
+  if (!selectedCampaignId) {
+    setSaveMessage("Please select a campaign first.");
+    return;
+  }
+
+  if (!content?.trim()) {
+    setSaveMessage("Content cannot be empty.");
+    return;
+  }
+
+  const campaign = campaigns.find(
+    (item) => String(item.id) === String(selectedCampaignId)
+  );
+
+  if (!campaign) {
+    setSaveMessage("Selected campaign was not found.");
+    return;
+  }
+
+  setSavingContent(true);
+  setSaveMessage("");
+
+  try {
+    const res = await api.post("/campaign-content", {
+      campaign_id: Number(selectedCampaignId),
+      content: content.trim(),
+      language,
+      channel: channel.toUpperCase(),
+      segment_id: campaign.segment_id ?? null,
+    });
+
+    setSavedContentId(res.data.id);
+    setReviewText(content.trim());
+
+    setSaveMessage(
+      `${language} content saved as draft #${res.data.id}. You can now submit it for review.`
+    );
+  } catch (err) {
+    setSaveMessage(
+      err.response?.data?.detail || "Failed to save campaign content."
+    );
+  } finally {
+    setSavingContent(false);
+  }
+}
   /* ---- Helpers ---- */
   function fmtErr(err) {
     const d = err.response?.data?.detail;
@@ -344,12 +437,12 @@ export default function AIStudio() {
 
   function toggleBatchLang(name) {
     setBatchLangs((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     );
   }
   function toggleWfLang(name) {
     setWfLangs((prev) =>
-      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     );
   }
 
@@ -396,11 +489,28 @@ export default function AIStudio() {
             {tr.is_fallback ? "Offline demo translation" : tr.provider}
           </span>
         </div>
+        <div className="aist-trans-actions">
+  {/* Keep all your existing buttons here */}
+
+  <button
+    onClick={() =>
+      saveCampaignContent(
+        editedTranslations[tr.language_code] ?? tr.translated_text,
+        tr.language
+      )
+    }
+    disabled={savingContent || !selectedCampaignId}
+  >
+    <Send size={12} /> Save to Campaign
+  </button>
+</div>
 
         {/* Editable translation field */}
         <div className="aist-trans-edit-box">
           <label className="aist-trans-label">
-            {isRtl ? "ترمیم شدہ ترجمہ (Editable Translation):" : "Editable Translation:"}
+            {isRtl
+              ? "ترمیم شدہ ترجمہ (Editable Translation):"
+              : "Editable Translation:"}
           </label>
           <textarea
             className={`aist-trans-textarea ${isRtl ? "aist-rtl-textarea" : ""}`}
@@ -408,11 +518,14 @@ export default function AIStudio() {
             dir={isRtl ? "rtl" : "ltr"}
             lang={isRtl ? "ur" : undefined}
             value={currentText}
-            onChange={(e) => handleTranslationChange(tr.language_code, e.target.value)}
+            onChange={(e) =>
+              handleTranslationChange(tr.language_code, e.target.value)
+            }
             style={
               isRtl
                 ? {
-                    fontFamily: "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
+                    fontFamily:
+                      "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
                     lineHeight: 2.0,
                     fontSize: "16px",
                     textAlign: "right",
@@ -436,7 +549,8 @@ export default function AIStudio() {
             style={
               isRtl
                 ? {
-                    fontFamily: "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
+                    fontFamily:
+                      "'Noto Nastaliq Urdu', 'Segoe UI', Tahoma, sans-serif",
                     lineHeight: 2.2,
                     fontSize: "17px",
                     textAlign: "right",
@@ -452,16 +566,24 @@ export default function AIStudio() {
 
         {/* Action buttons */}
         <div className="aist-trans-actions">
-          <button className="aist-copy-btn" onClick={() => copyText(currentText)}>
+          <button
+            className="aist-copy-btn"
+            onClick={() => copyText(currentText)}
+          >
             <Copy size={13} /> Copy
           </button>
-          <button className="aist-copy-btn" onClick={() => useAsContent(currentText)}>
+          <button
+            className="aist-copy-btn"
+            onClick={() => useAsContent(currentText)}
+          >
             <Pencil size={13} /> Use
           </button>
           {isEdited && (
             <button
               className="aist-copy-btn"
-              onClick={() => handleTranslationChange(tr.language_code, defaultText)}
+              onClick={() =>
+                handleTranslationChange(tr.language_code, defaultText)
+              }
             >
               <RefreshCw size={13} /> Reset
             </button>
@@ -478,15 +600,21 @@ export default function AIStudio() {
         <svg viewBox="0 0 36 36" className="aist-gauge-svg">
           <path
             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            fill="none" stroke="#e5e8f1" strokeWidth="3"
+            fill="none"
+            stroke="#e5e8f1"
+            strokeWidth="3"
           />
           <path
             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            fill="none" stroke={color} strokeWidth="3"
+            fill="none"
+            stroke={color}
+            strokeWidth="3"
             strokeDasharray={`${score}, 100`}
           />
         </svg>
-        <span className="aist-gauge-label" style={{ color }}>{score}</span>
+        <span className="aist-gauge-label" style={{ color }}>
+          {score}
+        </span>
       </div>
     );
   }
@@ -515,14 +643,20 @@ export default function AIStudio() {
     <main className="ai-studio">
       {/* Header */}
       <header className="ai-studio-header">
-        <button className="aist-back-btn" onClick={() => navigate("/dashboard")}>
+        <button
+          className="aist-back-btn"
+          onClick={() => navigate("/dashboard")}
+        >
           <ArrowLeft size={16} /> Dashboard
         </button>
         <p className="ai-studio-eyebrow">
           <Sparkles size={12} /> NEXAREACH · AI CONTENT STUDIO
         </p>
         <h1>AI Content Studio</h1>
-        <p>Generate, translate, personalize, analyze, and review public awareness messages.</p>
+        <p>
+          Generate, translate, personalize, analyze, and review public awareness
+          messages.
+        </p>
       </header>
 
       {/* Tabs */}
@@ -540,7 +674,6 @@ export default function AIStudio() {
 
       {/* Panel */}
       <section className="ai-studio-panel">
-
         {/* ============== GENERATE ============== */}
         {tab === "Generate" && (
           <>
@@ -557,19 +690,31 @@ export default function AIStudio() {
               <label>
                 Tone
                 <select value={tone} onChange={(e) => setTone(e.target.value)}>
-                  {TONES.map((t) => <option key={t}>{t}</option>)}
+                  {TONES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
                 </select>
               </label>
               <label>
                 Channel
-                <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                  {CHANNELS.map((c) => <option key={c}>{c}</option>)}
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                >
+                  {CHANNELS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
                 </select>
               </label>
             </div>
             <div className="aist-actions">
-              <button className="ai-studio-primary" onClick={handleGenerate} disabled={busy || prompt.trim().length < 3}>
-                <BrainCircuit size={15} /> {busy ? "Generating..." : "Generate Content"}
+              <button
+                className="ai-studio-primary"
+                onClick={handleGenerate}
+                disabled={busy || prompt.trim().length < 3}
+              >
+                <BrainCircuit size={15} />{" "}
+                {busy ? "Generating..." : "Generate Content"}
               </button>
               <button className="aist-secondary" onClick={loadHistory}>
                 <Clock size={14} /> Load History
@@ -580,7 +725,9 @@ export default function AIStudio() {
               <div className="aist-result-card">
                 <div className="aist-result-meta">
                   <span className="aist-provider-badge">
-                    {genResult.is_fallback ? "⚡ Offline demo content" : `✨ ${genResult.provider}`}
+                    {genResult.is_fallback
+                      ? "⚡ Offline demo content"
+                      : `✨ ${genResult.provider}`}
                   </span>
                   <span>Channel: {genResult.channel}</span>
                   <span>Tone: {genResult.tone}</span>
@@ -594,19 +741,33 @@ export default function AIStudio() {
                   <button onClick={() => useAsContent(genResult.content)}>
                     <Pencil size={13} /> Use in other tabs
                   </button>
+                  <button
+                    onClick={() => saveCampaignContent(genResult.content)}
+                    disabled={savingContent || !selectedCampaignId}
+                  >
+                    <Send size={13} /> Save to Campaign
+                  </button>
                   <button onClick={handleGenerate} disabled={busy}>
                     <RefreshCw size={13} /> Regenerate
                   </button>
                 </div>
                 {genResult.variations && genResult.variations.length > 1 && (
                   <details className="aist-variations">
-                    <summary>View {genResult.variations.length} variations</summary>
+                    <summary>
+                      View {genResult.variations.length} variations
+                    </summary>
                     {genResult.variations.map((v, i) => (
                       <div key={i} className="aist-variation">
-                        <span className="aist-var-label">Variation {i + 1}</span>
+                        <span className="aist-var-label">
+                          Variation {i + 1}
+                        </span>
                         <p>{v}</p>
-                        <button onClick={() => copyText(v)}><Copy size={12} /> Copy</button>
-                        <button onClick={() => useAsContent(v)}><Pencil size={12} /> Use</button>
+                        <button onClick={() => copyText(v)}>
+                          <Copy size={12} /> Copy
+                        </button>
+                        <button onClick={() => useAsContent(v)}>
+                          <Pencil size={12} /> Use
+                        </button>
                       </div>
                     ))}
                   </details>
@@ -620,11 +781,22 @@ export default function AIStudio() {
                 {history.map((h) => (
                   <div key={h.id} className="aist-history-item">
                     <div className="aist-hist-meta">
-                      <strong>{h.prompt.slice(0, 60)}{h.prompt.length > 60 ? "..." : ""}</strong>
-                      <small>{h.channel} · {h.tone} · {h.is_fallback ? "Offline" : h.provider}</small>
+                      <strong>
+                        {h.prompt.slice(0, 60)}
+                        {h.prompt.length > 60 ? "..." : ""}
+                      </strong>
+                      <small>
+                        {h.channel} · {h.tone} ·{" "}
+                        {h.is_fallback ? "Offline" : h.provider}
+                      </small>
                     </div>
                     <p>{h.generated_content.slice(0, 120)}...</p>
-                    <button onClick={() => { useAsContent(h.generated_content); setPrompt(h.prompt); }}>
+                    <button
+                      onClick={() => {
+                        useAsContent(h.generated_content);
+                        setPrompt(h.prompt);
+                      }}
+                    >
                       <Pencil size={12} /> Reuse
                     </button>
                   </div>
@@ -659,7 +831,10 @@ export default function AIStudio() {
             {!batchMode ? (
               <label>
                 Target language
-                <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+                <select
+                  value={targetLang}
+                  onChange={(e) => setTargetLang(e.target.value)}
+                >
                   {LANGUAGES.map(({ name, native, rtl }) => (
                     <option key={name} value={name}>
                       {name} — {native} {rtl ? "(RTL)" : ""}
@@ -684,9 +859,18 @@ export default function AIStudio() {
             <button
               className="ai-studio-primary"
               onClick={handleTranslate}
-              disabled={busy || !transText.trim()}
+              disabled={
+                busy ||
+                !transText.trim() ||
+                (batchMode && batchLangs.length === 0)
+              }
             >
-              <Languages size={15} /> {busy ? "Translating..." : batchMode ? "Batch Translate" : "Translate"}
+              <Languages size={15} />{" "}
+              {busy
+                ? "Translating..."
+                : batchMode
+                  ? "Batch Translate"
+                  : "Translate"}
             </button>
 
             {transResult && !transResult.batch && (
@@ -697,10 +881,26 @@ export default function AIStudio() {
             )}
             {transResult && transResult.batch && (
               <div className="aist-result-card">
-                <h3>Batch Translation — {transResult.data.results.length} languages</h3>
+                <h3>
+                  Batch Translation — {transResult.data.results.length}{" "}
+                  languages
+                </h3>
                 <div className="aist-trans-grid">
                   {transResult.data.results.map(renderTranslationCard)}
                 </div>
+                {transResult.data.errors &&
+                  transResult.data.errors.length > 0 && (
+                    <div className="ai-studio-error" role="alert">
+                      <strong>Some languages could not be translated:</strong>
+                      <ul>
+                        {transResult.data.errors.map((e) => (
+                          <li key={e.language}>
+                            {e.language}: {e.detail}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
               </div>
             )}
           </>
@@ -710,12 +910,13 @@ export default function AIStudio() {
         {tab === "Personalize" && (
           <>
             <label>
-              Message template (use {"{{name}}"}, {"{{preferred_language}}"}, etc.) *
+              Message template (use {"{{name}}"}, {"{{preferred_language}}"},
+              etc.) *
               <textarea
                 rows={4}
                 value={persoText}
                 onChange={(e) => setPersoText(e.target.value)}
-                placeholder='Dear {{name}}, health update for {{preferred_language}}-speaking community.'
+                placeholder="Dear {{name}}, health update for {{preferred_language}}-speaking community."
               />
             </label>
             <div className="aist-row">
@@ -745,7 +946,11 @@ export default function AIStudio() {
                 ? "Will generate segment variants for matched audience members."
                 : "Will preview placeholder replacement for a single member."}
             </p>
-            <button className="ai-studio-primary" onClick={handlePersonalize} disabled={busy || !persoText.trim()}>
+            <button
+              className="ai-studio-primary"
+              onClick={handlePersonalize}
+              disabled={busy || !persoText.trim()}
+            >
               <Users size={15} /> {busy ? "Processing..." : "Personalize"}
             </button>
 
@@ -770,7 +975,9 @@ export default function AIStudio() {
                     <p>{persoResult.data.missing_tokens.join(", ")}</p>
                   </div>
                 )}
-                <button onClick={() => copyText(persoResult.data.personalized_text)}>
+                <button
+                  onClick={() => copyText(persoResult.data.personalized_text)}
+                >
                   <Copy size={13} /> Copy personalized text
                 </button>
               </div>
@@ -779,16 +986,24 @@ export default function AIStudio() {
               <div className="aist-result-card">
                 <h3>Segment Variants — {persoResult.data.segment_name}</h3>
                 <p className="aist-meta-line">
-                  Matched {persoResult.data.total_matched_members} audience members
-                  {persoResult.data.criteria && Object.keys(persoResult.data.criteria).length > 0
+                  Matched {persoResult.data.total_matched_members} audience
+                  members
+                  {persoResult.data.criteria &&
+                  Object.keys(persoResult.data.criteria).length > 0
                     ? ` · Criteria: ${JSON.stringify(persoResult.data.criteria)}`
                     : ""}
                 </p>
                 <div className="aist-variants-list">
                   {persoResult.data.sample_variants.map((v) => (
-                    <div key={v.audience_member_id} className="aist-variant-card">
+                    <div
+                      key={v.audience_member_id}
+                      className="aist-variant-card"
+                    >
                       <strong>{v.full_name}</strong>
-                      <small>{v.preferred_language} · {v.email || v.phone || `ID ${v.audience_member_id}`}</small>
+                      <small>
+                        {v.preferred_language} ·{" "}
+                        {v.email || v.phone || `ID ${v.audience_member_id}`}
+                      </small>
                       <p>{v.personalized_content}</p>
                     </div>
                   ))}
@@ -813,38 +1028,77 @@ export default function AIStudio() {
             <div className="aist-row">
               <label>
                 Channel
-                <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                  {CHANNELS.map((c) => <option key={c}>{c}</option>)}
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                >
+                  {CHANNELS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
                 </select>
               </label>
               <label>
                 Target tone
                 <select value={tone} onChange={(e) => setTone(e.target.value)}>
-                  {TONES.map((t) => <option key={t}>{t}</option>)}
+                  {TONES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
                 </select>
               </label>
             </div>
             <div className="aist-actions">
-              <button className="ai-studio-primary" onClick={handleAnalyze} disabled={busy || !analyzeText.trim()}>
-                <BarChart3 size={15} /> {busy ? "Analyzing..." : "Analyze Readability & Tone"}
+              <button
+                className="ai-studio-primary"
+                onClick={handleAnalyze}
+                disabled={busy || !analyzeText.trim()}
+              >
+                <BarChart3 size={15} />{" "}
+                {busy ? "Analyzing..." : "Analyze Readability & Tone"}
               </button>
-              <button className="aist-secondary" onClick={() => handleImproveTone()} disabled={busy || !analyzeText.trim()}>
-                <Sparkles size={14} /> {busy ? "Optimizing..." : "Improve & Rewrite"}
+              <button
+                className="aist-secondary"
+                onClick={() => handleImproveTone()}
+                disabled={busy || !analyzeText.trim()}
+              >
+                <Sparkles size={14} />{" "}
+                {busy ? "Optimizing..." : "Improve & Rewrite"}
               </button>
             </div>
 
             <div className="aist-quick-tones">
-              <span className="aist-quick-tone-label">Quick tone rewrites:</span>
-              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Urgent")} disabled={busy || !analyzeText.trim()}>
+              <span className="aist-quick-tone-label">
+                Quick tone rewrites:
+              </span>
+              <button
+                type="button"
+                className="aist-tone-chip"
+                onClick={() => handleImproveTone("Urgent")}
+                disabled={busy || !analyzeText.trim()}
+              >
                 🚨 Urgent
               </button>
-              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Empathetic")} disabled={busy || !analyzeText.trim()}>
+              <button
+                type="button"
+                className="aist-tone-chip"
+                onClick={() => handleImproveTone("Empathetic")}
+                disabled={busy || !analyzeText.trim()}
+              >
                 🤝 Empathetic
               </button>
-              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Formal")} disabled={busy || !analyzeText.trim()}>
+              <button
+                type="button"
+                className="aist-tone-chip"
+                onClick={() => handleImproveTone("Formal")}
+                disabled={busy || !analyzeText.trim()}
+              >
                 🏛️ Formal
               </button>
-              <button type="button" className="aist-tone-chip" onClick={() => handleImproveTone("Persuasive")} disabled={busy || !analyzeText.trim()}>
+              <button
+                type="button"
+                className="aist-tone-chip"
+                onClick={() => handleImproveTone("Persuasive")}
+                disabled={busy || !analyzeText.trim()}
+              >
                 📢 Persuasive
               </button>
             </div>
@@ -853,35 +1107,51 @@ export default function AIStudio() {
               <div className="aist-result-card aist-improve-card">
                 <div className="aist-result-meta">
                   <span className="aist-provider-badge">
-                    {improveResult.is_fallback ? "⚡ Offline rewrite" : `✨ ${improveResult.provider}`}
+                    {improveResult.is_fallback
+                      ? "⚡ Offline rewrite"
+                      : `✨ ${improveResult.provider}`}
                   </span>
                   <span>Tone: {improveResult.target_tone}</span>
                   <span>Channel: {improveResult.channel}</span>
-                  <span>{improveResult.character_count} characters {improveResult.channel === "SMS" && "(SMS limit: 160)"}</span>
+                  <span>
+                    {improveResult.character_count} characters{" "}
+                    {improveResult.channel === "SMS" && "(SMS limit: 160)"}
+                  </span>
                 </div>
                 <h3>Rewritten & Improved Content</h3>
-                <div className="aist-content-block">{improveResult.improved_content}</div>
+                <div className="aist-content-block">
+                  {improveResult.improved_content}
+                </div>
                 <div className="aist-btn-row">
-                  <button onClick={() => copyText(improveResult.improved_content)}>
+                  <button
+                    onClick={() => copyText(improveResult.improved_content)}
+                  >
                     <Copy size={13} /> {copied ? "Copied!" : "Copy"}
                   </button>
-                  <button onClick={() => setAnalyzeText(improveResult.improved_content)}>
+                  <button
+                    onClick={() =>
+                      setAnalyzeText(improveResult.improved_content)
+                    }
+                  >
                     <RefreshCw size={13} /> Replace Editor Text
                   </button>
-                  <button onClick={() => useAsContent(improveResult.improved_content)}>
+                  <button
+                    onClick={() => useAsContent(improveResult.improved_content)}
+                  >
                     <Pencil size={13} /> Use in other tabs
                   </button>
                 </div>
-                {improveResult.suggestions && improveResult.suggestions.length > 0 && (
-                  <div className="aist-recommendations">
-                    <h4>Tone & Channel Optimization Applied</h4>
-                    <ul>
-                      {improveResult.suggestions.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {improveResult.suggestions &&
+                  improveResult.suggestions.length > 0 && (
+                    <div className="aist-recommendations">
+                      <h4>Tone & Channel Optimization Applied</h4>
+                      <ul>
+                        {improveResult.suggestions.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
               </div>
             )}
 
@@ -891,32 +1161,52 @@ export default function AIStudio() {
                 <div className="aist-metrics-row">
                   <div className="aist-metric-box">
                     <span>Public Clarity Score</span>
-                    {renderClarityGauge(analyzeResult.readability.public_clarity_score)}
+                    {renderClarityGauge(
+                      analyzeResult.readability.public_clarity_score,
+                    )}
                   </div>
                   <div className="aist-metric-box">
                     <span>Flesch Reading Ease</span>
-                    <strong>{analyzeResult.readability.flesch_reading_ease}</strong>
-                    <small>{analyzeResult.readability.reading_ease_level}</small>
+                    <strong>
+                      {analyzeResult.readability.flesch_reading_ease}
+                    </strong>
+                    <small>
+                      {analyzeResult.readability.reading_ease_level}
+                    </small>
                   </div>
                   <div className="aist-metric-box">
                     <span>Grade Level</span>
-                    <strong>{analyzeResult.readability.flesch_kincaid_grade}</strong>
+                    <strong>
+                      {analyzeResult.readability.flesch_kincaid_grade}
+                    </strong>
                   </div>
                   <div className="aist-metric-box">
                     <span>Words / Sentences</span>
-                    <strong>{analyzeResult.readability.word_count} / {analyzeResult.readability.sentence_count}</strong>
+                    <strong>
+                      {analyzeResult.readability.word_count} /{" "}
+                      {analyzeResult.readability.sentence_count}
+                    </strong>
                   </div>
                 </div>
                 <div className="aist-tone-section">
-                  <h4>Tone: {analyzeResult.tone.primary_tone}
-                    {analyzeResult.tone.secondary_tone ? ` / ${analyzeResult.tone.secondary_tone}` : ""}</h4>
-                  <p>Sentiment: {analyzeResult.tone.sentiment} · Confidence: {(analyzeResult.tone.confidence * 100).toFixed(0)}%</p>
+                  <h4>
+                    Tone: {analyzeResult.tone.primary_tone}
+                    {analyzeResult.tone.secondary_tone
+                      ? ` / ${analyzeResult.tone.secondary_tone}`
+                      : ""}
+                  </h4>
+                  <p>
+                    Sentiment: {analyzeResult.tone.sentiment} · Confidence:{" "}
+                    {(analyzeResult.tone.confidence * 100).toFixed(0)}%
+                  </p>
                 </div>
                 {analyzeResult.recommendations.length > 0 && (
                   <div className="aist-recommendations">
                     <h4>Recommendations</h4>
                     <ul>
-                      {analyzeResult.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                      {analyzeResult.recommendations.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
                     </ul>
                   </div>
                 )}
@@ -929,9 +1219,27 @@ export default function AIStudio() {
         {tab === "Review" && (
           <>
             <div className="aist-sub-tabs">
-              <button className={reviewSubTab === "check" ? "active" : ""} onClick={() => setReviewSubTab("check")}>Compliance Check</button>
-              <button className={reviewSubTab === "submit" ? "active" : ""} onClick={() => setReviewSubTab("submit")}>Submit for Review</button>
-              <button className={reviewSubTab === "list" ? "active" : ""} onClick={() => { setReviewSubTab("list"); loadReviewList(); }}>Review Queue</button>
+              <button
+                className={reviewSubTab === "check" ? "active" : ""}
+                onClick={() => setReviewSubTab("check")}
+              >
+                Compliance Check
+              </button>
+              <button
+                className={reviewSubTab === "submit" ? "active" : ""}
+                onClick={() => setReviewSubTab("submit")}
+              >
+                Submit for Review
+              </button>
+              <button
+                className={reviewSubTab === "list" ? "active" : ""}
+                onClick={() => {
+                  setReviewSubTab("list");
+                  loadReviewList();
+                }}
+              >
+                Review Queue
+              </button>
             </div>
 
             {(reviewSubTab === "check" || reviewSubTab === "submit") && (
@@ -948,8 +1256,13 @@ export default function AIStudio() {
                 <div className="aist-row">
                   <label>
                     Channel
-                    <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                      {CHANNELS.map((c) => <option key={c}>{c}</option>)}
+                    <select
+                      value={channel}
+                      onChange={(e) => setChannel(e.target.value)}
+                    >
+                      {CHANNELS.map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
                     </select>
                   </label>
                 </div>
@@ -958,21 +1271,47 @@ export default function AIStudio() {
 
             {reviewSubTab === "check" && (
               <>
-                <button className="ai-studio-primary" onClick={handleComplianceCheck} disabled={busy || !reviewText.trim()}>
-                  <ShieldCheck size={15} /> {busy ? "Checking..." : "Run Compliance Check"}
+                <button
+                  className="ai-studio-primary"
+                  onClick={handleComplianceCheck}
+                  disabled={busy || !reviewText.trim()}
+                >
+                  <ShieldCheck size={15} />{" "}
+                  {busy ? "Checking..." : "Run Compliance Check"}
                 </button>
                 {reviewResult?.type === "compliance" && (
                   <div className="aist-result-card">
                     <div className="aist-compliance-header">
-                      <h3>{reviewResult.data.passed ? "✅ Compliant" : "❌ Issues Found"}</h3>
-                      <span className="aist-score-badge" style={{
-                        background: reviewResult.data.score >= 80 ? "#dcfce7" : reviewResult.data.score >= 60 ? "#fef3c7" : "#fee2e2",
-                        color: reviewResult.data.score >= 80 ? "#166534" : reviewResult.data.score >= 60 ? "#92400e" : "#991b1b",
-                      }}>
+                      <h3>
+                        {reviewResult.data.passed
+                          ? "✅ Compliant"
+                          : "❌ Issues Found"}
+                      </h3>
+                      <span
+                        className="aist-score-badge"
+                        style={{
+                          background:
+                            reviewResult.data.score >= 80
+                              ? "#dcfce7"
+                              : reviewResult.data.score >= 60
+                                ? "#fef3c7"
+                                : "#fee2e2",
+                          color:
+                            reviewResult.data.score >= 80
+                              ? "#166534"
+                              : reviewResult.data.score >= 60
+                                ? "#92400e"
+                                : "#991b1b",
+                        }}
+                      >
                         Score: {reviewResult.data.score}/100
                       </span>
                     </div>
-                    <p>{reviewResult.data.character_count} chars (max recommended: {reviewResult.data.max_recommended_characters})</p>
+                    <p>
+                      {reviewResult.data.character_count} chars (max
+                      recommended:{" "}
+                      {reviewResult.data.max_recommended_characters})
+                    </p>
                     {renderComplianceIssues(reviewResult.data.issues)}
                   </div>
                 )}
@@ -983,16 +1322,30 @@ export default function AIStudio() {
               <>
                 <label>
                   Reviewer notes (optional)
-                  <input value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Notes for the reviewer..." />
+                  <input
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Notes for the reviewer..."
+                  />
                 </label>
-                <button className="ai-studio-primary" onClick={handleSubmitForReview} disabled={busy || !reviewText.trim()}>
-                  <Send size={15} /> {busy ? "Submitting..." : "Submit for Review"}
+                <button
+                  className="ai-studio-primary"
+                  onClick={handleSubmitForReview}
+                  disabled={busy || !reviewText.trim()}
+                >
+                  <Send size={15} />{" "}
+                  {busy ? "Submitting..." : "Submit for Review"}
                 </button>
                 {reviewResult?.type === "submitted" && (
                   <div className="aist-result-card aist-success">
                     <h3>✅ Submitted for Review</h3>
-                    <p>Review ID: #{reviewResult.data.id} · Status: {reviewResult.data.status}</p>
-                    <p>Compliance Score: {reviewResult.data.compliance_score}/100</p>
+                    <p>
+                      Review ID: #{reviewResult.data.id} · Status:{" "}
+                      {reviewResult.data.status}
+                    </p>
+                    <p>
+                      Compliance Score: {reviewResult.data.compliance_score}/100
+                    </p>
                   </div>
                 )}
               </>
@@ -1002,23 +1355,41 @@ export default function AIStudio() {
               <div className="aist-result-card">
                 <div className="aist-review-header-row">
                   <h3>Review Queue ({reviewList.length})</h3>
-                  <button className="aist-secondary" onClick={loadReviewList}><RefreshCw size={13} /> Refresh</button>
+                  <button className="aist-secondary" onClick={loadReviewList}>
+                    <RefreshCw size={13} /> Refresh
+                  </button>
                 </div>
-                {reviewList.length === 0 && <p className="aist-empty">No reviews found. Submit content for review first.</p>}
+                {reviewList.length === 0 && (
+                  <p className="aist-empty">
+                    No reviews found. Submit content for review first.
+                  </p>
+                )}
                 {reviewList.map((r) => (
                   <div key={r.id} className="aist-review-item">
                     <div className="aist-review-meta">
                       <strong>Review #{r.id}</strong>
-                      <span className={`aist-status aist-status-${r.status}`}>{r.status}</span>
+                      <span className={`aist-status aist-status-${r.status}`}>
+                        {r.status}
+                      </span>
                       <span>Score: {r.compliance_score}/100</span>
                     </div>
-                    {r.reviewer_notes && <p className="aist-review-notes">Notes: {r.reviewer_notes}</p>}
+                    {r.reviewer_notes && (
+                      <p className="aist-review-notes">
+                        Notes: {r.reviewer_notes}
+                      </p>
+                    )}
                     {r.status === "pending_review" && (
                       <div className="aist-btn-row">
-                        <button className="aist-approve" onClick={() => handleDecision(r.id, "approved")}>
+                        <button
+                          className="aist-approve"
+                          onClick={() => handleDecision(r.id, "approved")}
+                        >
                           <CheckCircle2 size={13} /> Approve
                         </button>
-                        <button className="aist-reject" onClick={() => handleDecision(r.id, "rejected")}>
+                        <button
+                          className="aist-reject"
+                          onClick={() => handleDecision(r.id, "rejected")}
+                        >
                           <XCircle size={13} /> Reject
                         </button>
                       </div>
@@ -1046,13 +1417,20 @@ export default function AIStudio() {
               <label>
                 Tone
                 <select value={tone} onChange={(e) => setTone(e.target.value)}>
-                  {TONES.map((t) => <option key={t}>{t}</option>)}
+                  {TONES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
                 </select>
               </label>
               <label>
                 Channel
-                <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                  {CHANNELS.map((c) => <option key={c}>{c}</option>)}
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                >
+                  {CHANNELS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
                 </select>
               </label>
               <label>
@@ -1067,16 +1445,27 @@ export default function AIStudio() {
               </label>
             </div>
             <div className="aist-lang-checkboxes">
-              <p className="aist-hint">Target languages for batch translation:</p>
+              <p className="aist-hint">
+                Target languages for batch translation:
+              </p>
               {LANGUAGES.map(({ name, native, rtl }) => (
                 <label key={name} className="aist-lang-check">
-                  <input type="checkbox" checked={wfLangs.includes(name)} onChange={() => toggleWfLang(name)} />
+                  <input
+                    type="checkbox"
+                    checked={wfLangs.includes(name)}
+                    onChange={() => toggleWfLang(name)}
+                  />
                   {name} — {native} {rtl ? "(RTL)" : ""}
                 </label>
               ))}
             </div>
-            <button className="ai-studio-primary" onClick={handleWorkflow} disabled={busy || wfPrompt.trim().length < 3}>
-              <Workflow size={15} /> {busy ? "Running pipeline..." : "Run Full Workflow"}
+            <button
+              className="ai-studio-primary"
+              onClick={handleWorkflow}
+              disabled={busy || wfPrompt.trim().length < 3}
+            >
+              <Workflow size={15} />{" "}
+              {busy ? "Running pipeline..." : "Run Full Workflow"}
             </button>
 
             {wfResult && (
@@ -1085,17 +1474,46 @@ export default function AIStudio() {
 
                 {/* Generation */}
                 <details open>
-                  <summary>1. Generated Content ({wfResult.generated_content.is_fallback ? "Offline demo" : wfResult.generated_content.provider})</summary>
-                  <div className="aist-content-block">{wfResult.generated_content.content}</div>
+                  <summary>
+                    1. Generated Content (
+                    {wfResult.generated_content.is_fallback
+                      ? "Offline demo"
+                      : wfResult.generated_content.provider}
+                    )
+                  </summary>
+                  <div className="aist-content-block">
+                    {wfResult.generated_content.content}
+                  </div>
                   <div className="aist-btn-row">
-                    <button onClick={() => copyText(wfResult.generated_content.content)}><Copy size={12} /> Copy</button>
-                    <button onClick={() => useAsContent(wfResult.generated_content.content)}><Pencil size={12} /> Use in other tabs</button>
+                    <button
+                      onClick={() =>
+                        copyText(wfResult.generated_content.content)
+                      }
+                    >
+                      <Copy size={12} /> Copy
+                    </button>
+                    <button
+                      onClick={() =>
+                        useAsContent(wfResult.generated_content.content)
+                      }
+                    >
+                      <Pencil size={12} /> Use in other tabs
+                    </button>
+                    <button
+  onClick={() => saveCampaignContent(wfResult.generated_content.content)}
+  disabled={savingContent || !selectedCampaignId}
+>
+  <Send size={12} /> Save to Campaign
+</button>
                   </div>
                 </details>
 
                 {/* Translations */}
                 <details>
-                  <summary>2. Translations ({wfResult.translations.results.length} languages)</summary>
+                  <summary>
+                    2. Translations ({wfResult.translations.results.length}{" "}
+                    languages)
+                  </summary>
                   <div className="aist-trans-grid">
                     {wfResult.translations.results.map(renderTranslationCard)}
                   </div>
@@ -1104,10 +1522,17 @@ export default function AIStudio() {
                 {/* Personalization */}
                 {wfResult.personalization && (
                   <details>
-                    <summary>3. Personalization — {wfResult.personalization.segment_name} ({wfResult.personalization.total_matched_members} members)</summary>
+                    <summary>
+                      3. Personalization —{" "}
+                      {wfResult.personalization.segment_name} (
+                      {wfResult.personalization.total_matched_members} members)
+                    </summary>
                     <div className="aist-variants-list">
                       {wfResult.personalization.sample_variants.map((v) => (
-                        <div key={v.audience_member_id} className="aist-variant-card">
+                        <div
+                          key={v.audience_member_id}
+                          className="aist-variant-card"
+                        >
                           <strong>{v.full_name}</strong>
                           <small>{v.preferred_language}</small>
                           <p>{v.personalized_content}</p>
@@ -1119,11 +1544,17 @@ export default function AIStudio() {
 
                 {/* Analysis */}
                 <details>
-                  <summary>4. Analysis — Clarity {wfResult.analysis.readability.public_clarity_score}/100 · {wfResult.analysis.tone.primary_tone}</summary>
+                  <summary>
+                    4. Analysis — Clarity{" "}
+                    {wfResult.analysis.readability.public_clarity_score}/100 ·{" "}
+                    {wfResult.analysis.tone.primary_tone}
+                  </summary>
                   <div className="aist-metrics-row">
                     <div className="aist-metric-box">
                       <span>Clarity</span>
-                      {renderClarityGauge(wfResult.analysis.readability.public_clarity_score)}
+                      {renderClarityGauge(
+                        wfResult.analysis.readability.public_clarity_score,
+                      )}
                     </div>
                     <div className="aist-metric-box">
                       <span>Tone</span>
@@ -1138,25 +1569,85 @@ export default function AIStudio() {
 
                 {/* Compliance */}
                 <details>
-                  <summary>5. Compliance — {wfResult.compliance.passed ? "✅ Passed" : "⚠ Issues"} (Score: {wfResult.compliance.score}/100)</summary>
+                  <summary>
+                    5. Compliance —{" "}
+                    {wfResult.compliance.passed ? "✅ Passed" : "⚠ Issues"}{" "}
+                    (Score: {wfResult.compliance.score}/100)
+                  </summary>
                   {renderComplianceIssues(wfResult.compliance.issues)}
                 </details>
 
                 {/* Review */}
+                {wfResult.translation_reviews?.length > 0 && (
+                  <details>
+                    <summary>
+                      7. Translation Reviews ({wfResult.translation_reviews.length} languages)
+                    </summary>
+                    {wfResult.translation_reviews.map((item) => (
+                      <div key={item.id} className="aist-result-card">
+                        <strong>{item.language}</strong>
+                        <p>Review #{item.id} ? Status: {item.status}</p>
+                        <p>
+                          Campaign content: #
+                          {item.campaign_content_id ?? "Not linked"}
+                        </p>
+                        <p>Compliance score: {item.compliance_score}/100</p>
+                      </div>
+                    ))}
+                  </details>
+                )}
+
                 {wfResult.review && (
                   <details>
-                    <summary>6. Review — #{wfResult.review.id} · {wfResult.review.status}</summary>
-                    <p>Compliance score: {wfResult.review.compliance_score}/100</p>
-                    {wfResult.review.reviewer_notes && <p>Notes: {wfResult.review.reviewer_notes}</p>}
+                    <summary>
+                      6. Review — #{wfResult.review.id} ·{" "}
+                      {wfResult.review.status}
+                    </summary>
+                    <p>
+                      Compliance score: {wfResult.review.compliance_score}/100
+                    </p>
+                    {wfResult.review.reviewer_notes && (
+                      <p>Notes: {wfResult.review.reviewer_notes}</p>
+                    )}
                   </details>
                 )}
               </div>
             )}
           </>
         )}
+        {/* Save content to campaign */}
+        <div className="aist-result-card">
+          <h3>Save Content to Campaign</h3>
+
+          <label>
+            Select Campaign
+            <select
+              value={selectedCampaignId}
+              onChange={(e) => setSelectedCampaignId(e.target.value)}
+            >
+              <option value="">Choose a campaign</option>
+              {campaigns.map((campaign) => (
+                <option key={campaign.id} value={campaign.id}>
+                  {campaign.name} ({campaign.status})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {saveMessage && <p role="status">{saveMessage}</p>}
+
+          <p>
+            Save generated or translated content as a draft. Approval is
+            required before sending.
+          </p>
+        </div>
 
         {/* Error display */}
-        {error && <p className="ai-studio-error" role="alert">{String(error)}</p>}
+        {error && (
+          <p className="ai-studio-error" role="alert">
+            {String(error)}
+          </p>
+        )}
       </section>
     </main>
   );

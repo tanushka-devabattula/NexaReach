@@ -1,4 +1,4 @@
-
+﻿
 fastapi[standard]
 sqlalchemy
 alembic
@@ -7,3 +7,12 @@ pwdlib[argon2]
 email-validator
 python-multipart
 PyJWT[crypto]
+openai
+
+
+openpyxl
+APScheduler==3.11.3
+
+twilio
+firebase-admin
+python-dotenv

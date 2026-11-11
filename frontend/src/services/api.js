@@ -20,6 +20,50 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ---- Login session helpers (kept in sessionStorage: cleared when the tab closes) ----
+export const saveSession = (result) => {
+  sessionStorage.setItem("access_token", result.access_token);
+  sessionStorage.setItem(
+    "user",
+    JSON.stringify({
+      id: result.user_id,
+      full_name: result.full_name,
+      role: result.role,
+    })
+  );
+};
+
+export const getSession = () => {
+  let user = null;
+  try {
+    user = JSON.parse(sessionStorage.getItem("user") || "null");
+  } catch (_) {
+    user = null;
+  }
+  return { token: sessionStorage.getItem("access_token"), user };
+};
+
+export const clearSession = () => {
+  sessionStorage.removeItem("access_token");
+  sessionStorage.removeItem("user");
+};
+
+// If the server says the token is missing/expired, log the user out and go to Login.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url = error.config?.url || "";
+    const isAuthCall = url.startsWith("/auth/login") || url.startsWith("/auth/register");
+    if (error.response?.status === 401 && !isAuthCall) {
+      clearSession();
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login?expired=1");
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const checkBackendHealth = async () => {
   const response = await api.get("/health");
   return response.data;

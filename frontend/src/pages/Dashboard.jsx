@@ -12,7 +12,9 @@ import {
   Sparkles,
   Globe,
   BrainCircuit,
+   ClipboardCheck,
 } from "lucide-react";
+import { clearSession, getSession } from "../services/api";
 import "./Dashboard.css";
 
 export default function Dashboard() {
@@ -25,11 +27,30 @@ export default function Dashboard() {
   }, [navigate]);
 
   const logout = () => {
-    sessionStorage.removeItem("access_token");
+    clearSession();
     navigate("/login", { replace: true });
   };
 
-  const items = [
+  const { user } = getSession();
+  const role = user?.role;
+  const ROLE_LABELS = {
+    admin: "Admin",
+    campaign_manager: "Campaign Manager",
+    communication_team: "Communication Team",
+    user: "User",
+  };
+  // Which roles may see each menu item (the backend enforces the real permissions).
+  const ROLE_ACCESS = {
+    "/audience": ["admin", "campaign_manager"],
+    "/segments": ["admin", "campaign_manager"],
+    "/campaigns": ["admin", "campaign_manager", "communication_team"],
+    "/templates": ["admin", "campaign_manager", "communication_team"],
+    "/ai-studio": ["admin", "campaign_manager", "communication_team"],
+    "/users": ["admin"],
+    "/review": ["admin", "communication_team", "reviewer"],
+  };
+
+  const allItems = [
     {
       title: "Audience",
       description: "Organize your audience and manage member details.",
@@ -71,7 +92,27 @@ export default function Dashboard() {
       number: "05",
       color: "purple",
     },
+    {
+  title: "Content Review",
+  description: "Check compliance and approve or request changes to messages.",
+  icon: ClipboardCheck,
+  path: "/review",
+  number: "06",
+  color: "orange",
+},
+    {
+      title: "User Management",
+      description: "Change roles and activate or deactivate accounts.",
+      icon: Users,
+      path: "/users",
+      number: "07",
+      color: "blue",
+    },
   ];
+
+  const items = allItems.filter(
+    (item) => !role || (ROLE_ACCESS[item.path] || []).includes(role)
+  );
 
   return (
     <div className="dashboard-layout">
@@ -113,6 +154,14 @@ export default function Dashboard() {
             <strong>Communication without barriers.</strong>
             <p>Reach communities in their preferred language.</p>
           </div>
+
+          {user && (
+            <p className="dashboard-sidebar-note">
+              Signed in as <strong>{user.full_name}</strong>
+              <br />
+              Role: {ROLE_LABELS[role] || role}
+            </p>
+          )}
 
           <button className="dashboard-signout" onClick={logout}>
             <LogOut size={16} /> Sign out

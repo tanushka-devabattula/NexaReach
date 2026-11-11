@@ -34,8 +34,15 @@ function Register() {
       return;
     }
 
-    if (password.length < 8) {
-      setErrorMessage("Password must contain at least 8 characters.");
+    if (
+      password.length < 8 ||
+      !/[a-z]/.test(password) ||
+      !/[A-Z]/.test(password) ||
+      !/[0-9]/.test(password)
+    ) {
+      setErrorMessage(
+        "Password needs at least 8 characters with an uppercase letter, a lowercase letter and a number."
+      );
       return;
     }
 
@@ -48,7 +55,7 @@ function Register() {
         phone: data.get("phone") || null,
         organization: data.get("organization") || null,
         password,
-        role: "user",
+        role: data.get("role") || "communication_team",
       });
 
       alert(`Account created successfully! Welcome, ${result.full_name}.`);
@@ -134,6 +141,14 @@ function Register() {
             />
           </div>
 
+          <label htmlFor="register-role">Role</label>
+          <div className="auth-input-wrap">
+            <select id="register-role" name="role" defaultValue="communication_team" required>
+              <option value="communication_team">Communication Team</option>
+              <option value="campaign_manager">Campaign Manager</option>
+            </select>
+          </div>
+
           <label htmlFor="register-password">Password</label>
           <div className="auth-input-wrap">
             <LockKeyhole size={18} />
@@ -141,7 +156,7 @@ function Register() {
               id="register-password"
               name="password"
               type={showPassword ? "text" : "password"}
-              placeholder="At least 8 characters"
+              placeholder="8+ chars: Aa and 0-9"
               minLength={8}
               maxLength={128}
               required

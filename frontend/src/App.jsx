@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AIStudio from "./pages/AIStudio";
 import LandingPage from "./pages/LandingPage";
@@ -9,8 +8,11 @@ import Audience from "./pages/Audience";
 import Campaigns from "./pages/Campaigns";
 import Templates from "./pages/Templates";
 import Segments from "./pages/Segments";
-
+import UserManagement from "./pages/UserManagement";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Announcements from "./pages/Announcements";
 import "./App.css";
+import Review from "./pages/Review";
 
 function App() {
   return (
@@ -19,13 +21,71 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/audience" element={<Audience />} />
-        <Route path="/campaigns" element={<Campaigns />} />
-        <Route path="/templates" element={<Templates />} />
-        <Route path="/segments" element={<Segments />} />
-        <Route path="/ai-studio" element={<AIStudio />} />
+        <Route path="/announcements" element={<Announcements />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/audience"
+          element={
+            <ProtectedRoute>
+              <Audience />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/campaigns"
+          element={
+            <ProtectedRoute>
+              <Campaigns />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/templates"
+          element={
+            <ProtectedRoute>
+              <Templates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/segments"
+          element={
+            <ProtectedRoute>
+              <Segments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-studio"
+          element={
+            <ProtectedRoute>
+              <AIStudio />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/review"
+          element={
+            <ProtectedRoute roles={["admin", "reviewer", "communication_team"]}>
+              <Review />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute roles={["admin"]}>
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

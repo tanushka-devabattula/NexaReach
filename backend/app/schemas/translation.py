@@ -24,8 +24,8 @@ class TranslationResult(BaseModel):
     translated_text: str
     is_rtl: bool = False
     direction: str = "ltr"
-    provider: str = "offline-fallback"
-    is_fallback: bool = True
+    provider: str = "none"
+    is_fallback: bool = False
     bidi_safe_text: str
     placeholders_preserved: list[str] = []
 
@@ -39,8 +39,17 @@ class BatchTranslationRequest(BaseModel):
     source_language: str = Field(default="English")
 
 
+class BatchTranslationError(BaseModel):
+    language: str
+    detail: str
+
+
 class BatchTranslationResponse(BaseModel):
     source_text: str
     source_language: str
     results: list[TranslationResult]
+    errors: list[BatchTranslationError] = Field(
+        default_factory=list,
+        description="Languages that could not be translated, with the reason.",
+    )
 

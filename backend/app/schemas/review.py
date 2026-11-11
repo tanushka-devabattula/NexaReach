@@ -28,6 +28,7 @@ class ComplianceCheckResponse(BaseModel):
 class ReviewSubmitRequest(BaseModel):
     campaign_id: int | None = None
     template_id: int | None = None
+    campaign_content_id: int | None = None
     content: str = Field(min_length=1)
     channel: str = "SMS"
     language: str = "English"
@@ -43,6 +44,7 @@ class ReviewResponse(BaseModel):
     id: int
     campaign_id: int | None = None
     template_id: int | None = None
+    campaign_content_id: int | None = None
     reviewer_id: int | None = None
     status: str
     compliance_score: int

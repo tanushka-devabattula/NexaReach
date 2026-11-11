@@ -14,6 +14,7 @@ from app.models.models import (
     ComplianceRule,
     ContentVariant,
     CampaignContent,
+    DeviceToken,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "ComplianceRule",
     "ContentVariant",
     "CampaignContent",
+    "DeviceToken",
 ]

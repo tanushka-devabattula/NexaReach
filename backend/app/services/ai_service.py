@@ -1,235 +1,184 @@
-from datetime import datetime
+"""AI content generation for NexaReach.
+
+Simple version of what happens:
+  1. Check the user's prompt is not empty.
+  2. Ask OpenAI to write the message (for the chosen channel / tone / language).
+  3. Save it in the AI history table and return it.
+
+If the API key is missing or OpenAI fails, we raise AIProviderError with the real
+reason. We NEVER return made-up text pretending to be AI output.
+"""
 import logging
-import os
-import re
-import time
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.models import AIContentHistory
-from app.schemas.ai import AIGenerateRequest, AIGenerateResponse
 
 logger = logging.getLogger(__name__)
 
+# Maximum characters a channel should have (None = no strict limit).
+CHANNEL_LIMITS = {"SMS": 160, "WHATSAPP": 1000, "PUSH": 120}
 
-def _generate_offline_variations(prompt: str, channel: str, tone: str, count: int = 2) -> list[str]:
-    """
-    Intelligent offline generator for public awareness messages.
-    Produces channel-tailored and tone-aligned content without external API dependencies.
-    """
-    clean_prompt = prompt.strip()
-    topic = clean_prompt.capitalize()
-    # Short subject for offline templates to avoid echoing full prompt.
-    short_subject = topic
-    
-    # Sector awareness keywords
-    is_health = bool(re.search(r"health|vaccin|disease|clinic|water|dengue|covid|pulse|polio|hospital|fever", clean_prompt, re.I))
-    is_disaster = bool(re.search(r"flood|storm|rain|cyclone|quake|disaster|fire|emergency|weather", clean_prompt, re.I))
-    is_civic = bool(re.search(r"vote|election|tax|pan|aadhaar|ration|sanitation|garbage|clean", clean_prompt, re.I))
 
-    channel_normalized = (channel or "SMS").upper()
-    tone_normalized = (tone or "Informative").capitalize()
+class AIProviderError(Exception):
+    """The AI provider is missing, rejected us, or failed."""
 
-    variations = []
 
-    # Variation 1
-    if channel_normalized == "SMS":
-        if tone_normalized == "Urgent":
-            v1 = f"URGENT ADVISORY: {short_subject}. Immediate precautions recommended. Call helpline 1800-000-111 for verified guidance."
-            v2 = f"ALERT: Important update regarding {short_subject}. Visit official center or call 1800-000-111. Stay safe."
-        elif tone_normalized == "Empathetic":
-            v1 = f"Dear citizen, your community is here for you regarding {short_subject}. Free assistance available at your nearest center."
-            v2 = f"We care for your family's safety: {short_subject}. Reach out to helpline 1800-000-111 anytime."
-        elif tone_normalized == "Formal":
-            v1 = f"PUBLIC NOTICE: General guidelines issued on {short_subject}. Compliance advised by local authorities. Info: 1800-000-111."
-            v2 = f"OFFICIAL CIRCULAR: {clean_prompt}. Citizens requested to cooperate with public health teams. Helpline: 1800-000-111."
-        else: # Informative / Persuasive
-            v1 = f"Public Awareness: Protect your community on {clean_prompt}. Follow verified guidelines. Info: 1800-000-111."
-            v2 = f"Community Notice: Take proactive steps on {clean_prompt}. Visit local center or call 1800-000-111 today."
+def _api_key() -> str:
+    # settings reads backend/.env (os.getenv does NOT), so use settings first.
+    import os
 
-    elif channel_normalized == "WHATSAPP":
-        if tone_normalized == "Urgent":
-            v1 = (
-                f"🚨 *CRITICAL PUBLIC NOTICE: {topic}* 🚨\n\n"
-                f"Immediate awareness update regarding: {clean_prompt}\n\n"
-                f"📌 *Required Actions:*\n"
-                f"1. Stay indoors and follow verified district advisories.\n"
-                f"2. Keep emergency contacts and basic supplies accessible.\n"
-                f"3. Do not forward unverified rumors.\n\n"
-                f"📞 *Official Helpline:* 1800-000-111\n"
-                f"🌐 Official Portal: https://nexareach.gov.in/advisory"
-            )
-            v2 = (
-                f"⚠️ *URGENT SAFETY BULLETIN: {topic}*\n\n"
-                f"Please note this priority alert on {clean_prompt}.\n\n"
-                f"• Follow official instructions from authorized personnel.\n"
-                f"• Share this advisory with neighbors and vulnerable family members.\n\n"
-                f"📞 24x7 Help Desk: 1800-000-111"
-            )
-        else:
-            v1 = (
-                f"📢 *Public Awareness Advisory: {topic}*\n\n"
-                f"Dear Community Member,\n\n"
-                f"We are sharing vital information regarding {clean_prompt}.\n\n"
-                f"✅ Key Steps to Follow:\n"
-                f"• Maintain proper hygiene and preventive protocols.\n"
-                f"• Access free public support at your nearest civil center.\n"
-                f"• Reach out to district coordinators for any assistance.\n\n"
-                f"📞 *Toll-Free Helpline:* 1800-000-111\n"
-                f"Reply 'STOP' to unsubscribe from public broadcast alerts."
-            )
-            v2 = (
-                f"🤝 *Community Health & Safety Bulletin*\n\n"
-                f"Update on: {clean_prompt}\n\n"
-                f"Together, we can ensure community well-being by following verified steps:\n"
-                f"1. Check official guidelines before acting.\n"
-                f"2. Assist senior citizens and children.\n"
-                f"3. Report concerns to local field workers.\n\n"
-                f"For details, visit: https://nexareach.gov.in"
-            )
+    return (settings.API_KEY or os.getenv("OPENAI_API_KEY") or "").strip()
 
-    elif channel_normalized == "EMAIL":
-        v1 = (
-            f"Subject: Official Public Awareness Advisory: {topic}\n\n"
-            f"Dear Resident,\n\n"
-            f"This is an official public awareness communication regarding {clean_prompt}.\n\n"
-            f"Context & Guidance:\n"
-            f"The district administration encourages all residents to take informed precautions. "
-            f"Field officers and public centers are operational to support your neighborhood.\n\n"
-            f"Action Points:\n"
-            f"- Verify official announcements at https://nexareach.gov.in\n"
-            f"- Reach emergency response coordinators at 1800-000-111\n\n"
-            f"Sincerely,\n"
-            f"Public Awareness & Citizen Services Division\n"
-            f"NexaReach Platform"
+
+def _system_prompt(category: str, tone: str, channel: str, language: str, audience: str) -> str:
+    limit = CHANNEL_LIMITS.get(channel.upper())
+    limit_rule = (
+        f"- The message MUST be at most {limit} characters including spaces.\n" if limit else ""
+    )
+    return (
+        "You write public-awareness messages for Indian government, health and NGO campaigns.\n"
+        f"Category: {category}. Tone: {tone}. Channel: {channel}. Audience: {audience}.\n"
+        f"Write the message in {language}.\n"
+        "Rules:\n"
+        f"{limit_rule}"
+        "- Use simple everyday words that ordinary citizens understand.\n"
+        "- Include one clear action the reader should take.\n"
+        "- Do not invent phone numbers, links, dates or statistics. If a detail is needed, "
+        "use a placeholder such as {phone}, {url} or {date}.\n"
+        "- Reply with ONLY the message text. No quotes, titles or explanations."
+    )
+
+
+def _call_openai(system_prompt: str, user_prompt: str, n: int) -> List[str]:
+    api_key = _api_key()
+    if not api_key:
+        raise AIProviderError(
+            "AI provider is not configured. Add API_KEY=<your OpenAI key> to backend/.env "
+            "and restart the backend."
         )
-        v2 = (
-            f"Subject: Important Community Update Regarding {topic}\n\n"
-            f"Dear Citizen,\n\n"
-            f"We are reaching out with verified recommendations concerning {clean_prompt}.\n\n"
-            f"Please take a few moments to review preventive guidelines and share them with family members.\n"
-            f"Helpline: 1800-000-111 | https://nexareach.gov.in\n\n"
-            f"Regards,\nNexaReach Public Outreach Team"
+    try:
+        import openai
+        from openai import OpenAI
+    except ImportError as err:
+        raise AIProviderError("The 'openai' package is not installed. Run: pip install openai") from err
+
+    client = OpenAI(api_key=api_key, timeout=settings.TRANSLATION_TIMEOUT, max_retries=1)
+    try:
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            temperature=0.7,
+            max_tokens=400,
+            n=n,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
         )
+    except openai.AuthenticationError as err:
+        raise AIProviderError("The AI provider rejected the API key (invalid or revoked).") from err
+    except openai.RateLimitError as err:
+        raise AIProviderError("AI provider rate limit or quota exceeded. Check the key's credit.") from err
+    except (openai.APITimeoutError, openai.APIConnectionError) as err:
+        raise AIProviderError("Could not reach the AI provider (timeout or network problem).") from err
+    except openai.OpenAIError as err:
+        raise AIProviderError(f"AI provider error: {type(err).__name__}.") from err
 
-    else: # Social Media / Default
-        v1 = f"📢 Public Advisory on {clean_prompt}. Stay informed, stay prepared, and rely on official district sources. Call 1800-000-111. #NexaReach #PublicAwareness #{re.sub(r'[^a-zA-Z0-9]', '', topic)[:15]}"
-        v2 = f"💡 Awareness Alert: {clean_prompt}. Take preventive steps today to protect your family. Official helpline: 1800-000-111. #CommunityFirst #NexaReach"
+    texts = [(c.message.content or "").strip() for c in response.choices]
+    texts = [t for t in texts if t]
+    if not texts:
+        raise AIProviderError("The AI provider returned an empty message.")
+    return texts
 
-    variations = [v1, v2]
-    return variations[:count]
 
+def generate_content(
+    prompt: str,
+    category: str = "Public Health",
+    target_language: str = "English",
+    tone: Optional[str] = "Informative",
+    channel: Optional[str] = "SMS",
+    audience: str = "General Public",
+    variations: int = 1,
+    db: Optional[Session] = None,
+    user_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    topic = (prompt or "").strip()
+    if not topic:
+        raise ValueError("Please enter a topic or prompt.")
 
-def generate_content(request: AIGenerateRequest, db: Session | None = None) -> AIGenerateResponse:
-    """
-    Generate public awareness content.
-    Attempts OpenAI API when API_KEY is set; otherwise falls back to deterministic offline generator.
-    Always marks provider and is_fallback transparently.
-    """
-    api_key = settings.API_KEY or os.getenv("OPENAI_API_KEY") or ""
-    provider = "offline-fallback"
-    is_fallback = True
-    model_name = None
-    primary_content = ""
-    variations: list[str] = []
+    tone = (tone or "Informative").strip()
+    channel = (channel or "SMS").strip()
+    variations = max(1, min(int(variations or 1), 3))
 
-    if api_key and not api_key.startswith("replace-") and len(api_key) > 20:
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key, timeout=10.0)
-            prompt_instruction = (
-                f"You are a public awareness mass communication specialist for the NexaReach platform. "
-                f"Generate a {request.tone} message for the channel '{request.channel}' regarding: '{request.prompt}'. "
-                f"Target audience: {request.target_audience or 'General Public'}. "
-                f"Keep length appropriate for the channel (SMS < 160 chars, WhatsApp formatted with emojis, Email with Subject). "
-                f"Include emergency helpline placeholder '1800-000-111' where relevant."
-            )
-            for attempt in range(2 + 1):
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": "You create impactful, verified public awareness messages."},
-                            {"role": "user", "content": prompt_instruction}
-                        ],
-                        max_tokens=300,
-                        temperature=0.7,
-                        n=request.variations or 1,
-                        timeout=10.0,
-                    )
-                    choices = [c.message.content.strip() for c in response.choices if c.message.content]
-                    if choices:
-                        primary_content = choices[0]
-                        variations = choices
-                        provider = "openai"
-                        is_fallback = False
-                        model_name = "gpt-3.5-turbo"
-                    break
-                except Exception as err:
-                    if attempt < 2:
-                        time.sleep(0.5 * (attempt + 1))
-                    else:
-                        safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(err))
-                        logger.warning("OpenAI content generation failed after retries: %s", safe_msg)
-                        provider = "offline-fallback"
-                        is_fallback = True
-        except Exception as e:
-            safe_msg = re.sub(r"sk-[a-zA-Z0-9_-]{8,}", "[REDACTED_API_KEY]", str(e))
-            logger.warning("Failed to initialize OpenAI client for content generation: %s", safe_msg)
-            # Fall back to offline generator on any error
-            provider = "offline-fallback"
-            is_fallback = True
+    texts = _call_openai(
+        _system_prompt(category, tone, channel, target_language, audience), topic, variations
+    )
+    main_text = texts[0]
+    limit = CHANNEL_LIMITS.get(channel.upper())
+    provider = f"openai:{settings.OPENAI_MODEL}"
 
-    if is_fallback or not primary_content:
-        variations = _generate_offline_variations(
-            prompt=request.prompt,
-            channel=request.channel,
-            tone=request.tone,
-            count=request.variations or 2,
-        )
-        primary_content = variations[0]
-
-    history_record_id = None
+    history_id = None
     if db is not None:
         try:
             record = AIContentHistory(
-                user_id=request.user_id,
-                campaign_id=request.campaign_id,
-                prompt=request.prompt,
-                channel=request.channel,
-                tone=request.tone,
-                language="English",
-                generated_content=primary_content,
-                provider=provider,
-                is_fallback=is_fallback,
-                created_at=datetime.utcnow(),
+                user_id=user_id,
+                prompt=topic,
+                channel=channel,
+                tone=tone,
+                language=target_language,
+                generated_content=main_text,
+                provider=provider[:50],
+                is_fallback=False,
             )
             db.add(record)
             db.commit()
-            db.refresh(record)
-            history_record_id = record.id
-        except Exception:
+            history_id = record.id
+        except Exception:  # saving history must never break a good result
+            logger.exception("Could not save AI history")
             db.rollback()
 
-    return AIGenerateResponse(
-        content=primary_content,
-        variations=variations,
-        channel=request.channel,
-        tone=request.tone,
-        provider=provider,
-        is_fallback=is_fallback,
-        model=model_name,
-        history_id=history_record_id,
-        created_at=datetime.utcnow(),
-    )
+    return {
+        "id": history_id,
+        "content": main_text,
+        "variations": texts,
+        "channel": channel,
+        "tone": tone,
+        "language": target_language,
+        "provider": provider,
+        "model": settings.OPENAI_MODEL,
+        "is_fallback": False,
+        "character_count": len(main_text),
+        "max_characters": limit,
+        "within_limit": (len(main_text) <= limit) if limit else True,
+        "status": "success",
+    }
 
 
-def list_generation_history(db: Session, limit: int = 20) -> list[AIContentHistory]:
-    """Retrieve recent AI content generation history from the database."""
-    return (
+generate_ai_content = generate_content  # old name, kept so nothing else breaks
+
+
+def list_generation_history(db: Optional[Session] = None, limit: int = 10, **_ignored) -> List[Dict[str, Any]]:
+    if db is None:
+        return []
+    rows = (
         db.query(AIContentHistory)
         .order_by(AIContentHistory.id.desc())
-        .limit(limit)
+        .limit(max(1, min(int(limit or 10), 100)))
         .all()
     )
-
+    return [
+        {
+            "id": r.id,
+            "prompt": r.prompt,
+            "generated_content": r.generated_content,
+            "channel": r.channel,
+            "tone": r.tone,
+            "language": r.language,
+            "provider": r.provider,
+            "is_fallback": bool(r.is_fallback),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]

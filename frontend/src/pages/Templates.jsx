@@ -8,6 +8,9 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Languages,
+  Pencil,
+  Trash2,
+  X,
 } from "lucide-react";
 import api from "../services/api";
 import "./Templates.css";
@@ -18,6 +21,8 @@ export default function Templates() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     name: "",
     channel: "SMS",
@@ -54,15 +59,24 @@ export default function Templates() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    setSuccess("");
 
     try {
-      await api.post("/templates", {
+      const payload = {
         name: form.name.trim(),
         channel: form.channel,
         language: form.language,
         subject: form.subject.trim() || null,
         body: form.body.trim(),
-      });
+      };
+
+      if (editingId) {
+        await api.patch(`/templates/${editingId}`, payload);
+        setSuccess("Template updated successfully.");
+      } else {
+        await api.post("/templates", payload);
+        setSuccess("Template created successfully.");
+      }
 
       setForm({
         name: "",
@@ -71,9 +85,9 @@ export default function Templates() {
         subject: "",
         body: "",
       });
+      setEditingId(null);
 
       await loadTemplates();
-      alert("Template created successfully!");
     } catch (err) {
       const detail = err.response?.data?.detail;
       setError(
@@ -87,6 +101,49 @@ export default function Templates() {
       setSaving(false);
     }
   };
+
+  function handleEdit(template) {
+    setEditingId(template.id);
+    setForm({
+      name: template.name || "",
+      channel: template.channel || "SMS",
+      language: template.language || "English",
+      subject: template.subject || "",
+      body: template.body || "",
+    });
+    setError("");
+    setSuccess("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleDelete(template) {
+    if (!window.confirm(`Delete template "${template.name}"?`)) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      await api.delete(`/templates/${template.id}`);
+      setSuccess("Template deleted successfully.");
+
+      if (editingId === template.id) {
+        setEditingId(null);
+        setForm({
+          name: "",
+          channel: "SMS",
+          language: "English",
+          subject: "",
+          body: "",
+        });
+      }
+
+      await loadTemplates();
+    } catch (err) {
+      setError(
+        err.response?.data?.detail || "Unable to delete this template."
+      );
+    }
+  }
 
   return (
     <main className="templates-page">
@@ -122,7 +179,7 @@ export default function Templates() {
       <section className="templates-panel">
         <div className="templates-panel-heading">
           <div>
-            <h2><Plus size={19} /> Create a template</h2>
+            <h2><Plus size={19} /> {editingId ? "Edit template" : "Create a template"}</h2>
             <p>Save a message that can be reused in campaigns.</p>
           </div>
         </div>
@@ -194,11 +251,35 @@ export default function Templates() {
           </label>
 
           {error && <p className="templates-error" role="alert">{String(error)}</p>}
+          {success && <p className="templates-success" role="status">{success}</p>}
 
-          <button type="submit" className="templates-primary-btn" disabled={saving}>
-            <Plus size={17} />
-            {saving ? "Saving..." : "Save template"}
-          </button>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <button type="submit" className="templates-primary-btn" disabled={saving}>
+              <Plus size={17} />
+              {saving ? "Saving..." : editingId ? "Update template" : "Save template"}
+            </button>
+
+            {editingId && (
+              <button
+                type="button"
+                className="templates-secondary-btn"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm({
+                    name: "",
+                    channel: "SMS",
+                    language: "English",
+                    subject: "",
+                    body: "",
+                  });
+                  setError("");
+                  setSuccess("");
+                }}
+              >
+                <X size={15} /> Cancel edit
+              </button>
+            )}
+          </div>
         </form>
       </section>
 
@@ -248,6 +329,28 @@ export default function Templates() {
                 )}
 
                 <p className="template-body">{template.body}</p>
+
+                <div className="template-card-actions" style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  marginTop: "14px"
+                }}>
+                  <button
+                    type="button"
+                    className="templates-secondary-btn"
+                    onClick={() => handleEdit(template)}
+                  >
+                    <Pencil size={14} /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="templates-secondary-btn"
+                    onClick={() => handleDelete(template)}
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
 
                 <div className="template-card-bottom">
                   <span>Template #{template.id}</span>

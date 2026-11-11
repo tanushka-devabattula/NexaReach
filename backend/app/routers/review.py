@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.models import ContentReview
+from app.core.security import get_current_user
+from app.models.models import ContentReview, Role, User
 from app.schemas.review import (
     ComplianceCheckRequest,
     ComplianceCheckResponse,
@@ -42,6 +43,7 @@ def run_compliance_check(request: ComplianceCheckRequest):
 def submit_message_review(
     request: ReviewSubmitRequest,
     db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ):
     """
     Runs automated compliance checks and registers a ContentReview entry in
@@ -59,6 +61,7 @@ def list_reviews(
     status_filter: str | None = Query(default=None, description="Optional status filter ('pending_review', 'approved', etc.)"),
     limit: int = Query(default=50, ge=1, le=100),
     db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ):
     """
     Returns list of content reviews stored in SQLite.
@@ -77,6 +80,7 @@ def list_reviews(
 def get_review_details(
     review_id: int,
     db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
 ):
     """
     Retrieves a specific review record by ID.
@@ -100,12 +104,25 @@ def apply_review_decision(
     review_id: int,
     request: ReviewDecisionRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Applies review decision ('approved', 'rejected', or 'changes_requested')
     and records reviewer feedback and timestamp in the database.
     """
-    updated = decide_review(review_id, request, db=db)
+    role = (
+        db.query(Role).filter(Role.id == current_user.role_id).first()
+        if current_user.role_id else None
+    )
+    if role is None or role.name.strip().lower() not in {"admin", "reviewer", "communication_team"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Reviewer or admin role required to decide on content reviews.",
+        )
+
+    updated = decide_review(
+        review_id, request, db=db, reviewer_id=current_user.id
+    )
     if not updated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

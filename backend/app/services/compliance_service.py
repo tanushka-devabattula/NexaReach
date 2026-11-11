@@ -3,7 +3,7 @@ import re
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.models import ContentReview
+from app.models.models import Campaign, CampaignContent, ContentReview
 from app.schemas.review import (
     ComplianceCheckRequest,
     ComplianceCheckResponse,
@@ -201,25 +201,78 @@ def check_compliance(request: ComplianceCheckRequest) -> ComplianceCheckResponse
 
 
 def submit_for_review(request: ReviewSubmitRequest, db: Session, user_id: int | None = None) -> ContentReview:
-    """
-    Creates a new ContentReview entry in pending_review status with automated compliance results.
-    """
+    """Create a review and link it to the campaign content being reviewed."""
     check_req = ComplianceCheckRequest(
         content=request.content,
         channel=request.channel,
         language=request.language,
     )
     compliance_res = check_compliance(check_req)
+    issues_dump = [issue.model_dump() for issue in compliance_res.issues]
 
-    issues_dump = [i.model_dump() for i in compliance_res.issues]
+    linked_content = None
+    campaign_id = request.campaign_id
+    content_id = request.campaign_content_id
+
+    if content_id is not None:
+        linked_content = (
+            db.query(CampaignContent)
+            .filter(CampaignContent.id == content_id)
+            .first()
+        )
+        if linked_content is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Campaign content not found.",
+            )
+        if campaign_id is not None and campaign_id != linked_content.campaign_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Campaign ID does not match campaign content.",
+            )
+        if linked_content.status not in ("draft", "in_review"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only draft or in-review content can be submitted.",
+            )
+        campaign_id = linked_content.campaign_id
+        linked_content.content = request.content
+        linked_content.channel = request.channel.strip().upper()
+        linked_content.language = request.language
+        linked_content.status = "in_review"
+
+    elif campaign_id is not None:
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if campaign is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Campaign not found.",
+            )
+        linked_content = CampaignContent(
+            campaign_id=campaign.id,
+            content=request.content,
+            channel=request.channel.strip().upper(),
+            language=request.language,
+            segment_id=campaign.segment_id,
+            status="in_review",
+        )
+        db.add(linked_content)
+        db.flush()
+        content_id = linked_content.id
 
     review = ContentReview(
-        campaign_id=request.campaign_id,
+        campaign_id=campaign_id,
         template_id=request.template_id,
+        campaign_content_id=content_id,
         reviewer_id=None,
         status="pending_review",
         compliance_score=compliance_res.score,
         compliance_issues=issues_dump,
+                readability_metrics={
+            "content": request.content,
+            "channel": request.channel.strip().upper(),
+            "language": request.language,
+        },
         reviewer_notes=request.reviewer_notes,
         created_at=datetime.utcnow(),
     )
@@ -228,43 +281,65 @@ def submit_for_review(request: ReviewSubmitRequest, db: Session, user_id: int | 
     db.refresh(review)
     return review
 
-
 def decide_review(review_id: int, request: ReviewDecisionRequest, db: Session, reviewer_id: int | None = None) -> ContentReview | None:
-    """
-    Applies review decision: 'approved', 'rejected', or 'changes_requested'.
-    Blocks approval if content has critical compliance issues (severity 'error') or score < 60.
-    """
+    """Apply review decision and synchronize the linked campaign content."""
     review = db.query(ContentReview).filter(ContentReview.id == review_id).first()
     if not review:
         return None
 
-    if request.decision.lower() == "approved":
-        has_critical = False
-        critical_reasons = []
-        if review.compliance_issues:
-            for issue in review.compliance_issues:
-                if isinstance(issue, dict) and issue.get("severity") == "error" and not issue.get("passed", True):
-                    has_critical = True
-                    critical_reasons.append(issue.get("message") or issue.get("rule") or "Critical compliance error")
+    decision = request.decision.strip().lower()
+    if decision not in ("approved", "rejected", "changes_requested"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Decision must be approved, rejected, or changes_requested.",
+        )
 
-        score_too_low = review.compliance_score is not None and review.compliance_score < 60
-        if has_critical or score_too_low:
+    if decision == "approved":
+        critical = [
+            issue.get("message") or issue.get("rule") or "Critical compliance error"
+            for issue in (review.compliance_issues or [])
+            if isinstance(issue, dict)
+            and issue.get("severity") == "error"
+            and not issue.get("passed", True)
+        ]
+        low_score = review.compliance_score is not None and review.compliance_score < 60
+
+        if critical or low_score:
             reasons = []
-            if has_critical:
-                reasons.append(f"unresolved critical compliance error(s): {'; '.join(critical_reasons[:2])}")
-            if score_too_low:
-                reasons.append(f"compliance score ({review.compliance_score}/100) is below the minimum required threshold of 60")
+            if critical:
+                reasons.append("unresolved critical compliance issue(s): " + "; ".join(critical[:2]))
+            if low_score:
+                reasons.append(f"compliance score ({review.compliance_score}/100) is below 60")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Approval blocked: {'; '.join(reasons)}.",
+                detail="Approval blocked: " + "; ".join(reasons) + ".",
             )
 
-    review.status = request.decision
+    review.status = decision
     review.reviewer_notes = request.reviewer_notes or review.reviewer_notes
     review.reviewer_id = reviewer_id or review.reviewer_id
     review.reviewed_at = datetime.utcnow()
 
+    if review.campaign_content_id is not None:
+        linked = (
+            db.query(CampaignContent)
+            .filter(CampaignContent.id == review.campaign_content_id)
+            .first()
+        )
+        if linked is not None:
+            if decision == "approved":
+                linked.status = "approved"
+                linked.approved_by = reviewer_id
+                linked.approved_at = review.reviewed_at
+            elif decision == "rejected":
+                linked.status = "rejected"
+                linked.approved_by = None
+                linked.approved_at = None
+            else:
+                linked.status = "draft"
+                linked.approved_by = None
+                linked.approved_at = None
+
     db.commit()
     db.refresh(review)
     return review
-

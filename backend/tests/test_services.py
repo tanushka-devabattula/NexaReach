@@ -14,7 +14,14 @@ from app.schemas.translation import (
     BatchTranslationRequest,
     TranslationRequest,
 )
-from app.services.ai_service import generate_content, list_generation_history
+import pytest
+
+from app.services import ai_service
+from app.services.ai_service import (
+    AIProviderError,
+    generate_content,
+    list_generation_history,
+)
 from app.services.analysis_service import analyze_tone_and_readability, calculate_readability
 from app.services.compliance_service import check_compliance, decide_review, submit_for_review
 from app.services.personalization_service import (
@@ -41,25 +48,29 @@ def get_test_db():
 # ---------------------------------------------------------
 # Task 7: AI Content Generation & History Tests
 # ---------------------------------------------------------
-def test_ai_generation_offline_fallback(db):
-    req = AIGenerateRequest(
-        prompt="Free flood relief camps in district 4",
-        channel="SMS",
-        tone="Urgent",
-        variations=2,
+def test_ai_generation_uses_provider_and_saves_history(db, monkeypatch):
+    # The AI call is faked (no cost); the answer depends on the prompt, so it cannot be canned text.
+    monkeypatch.setattr(ai_service, "_call_openai", lambda system, user, n: [f"Camp update: {user}"] * n)
+    res = generate_content(
+        "Free flood relief camps in district 4", channel="SMS", tone="Urgent", variations=2, db=db
     )
-    res = generate_content(req, db=db)
 
-    assert res.content != ""
-    assert res.provider == "offline-fallback"
-    assert res.is_fallback is True
-    assert len(res.variations) >= 1
-    assert "1800-000-111" in res.content
+    assert res["content"] == "Camp update: Free flood relief camps in district 4"
+    assert res["provider"].startswith("openai:")
+    assert res["is_fallback"] is False
+    assert len(res["variations"]) == 2
 
-    # Verify history was saved to DB
     history = list_generation_history(db, limit=5)
-    assert len(history) > 0
-    assert any(h.prompt == "Free flood relief camps in district 4" for h in history)
+    assert len(history) == 1
+    assert history[0]["prompt"] == "Free flood relief camps in district 4"
+
+
+def test_ai_generation_without_key_raises_clear_error(db, monkeypatch):
+    # Missing key must be an honest error - never made-up text.
+    monkeypatch.setattr(ai_service, "_api_key", lambda: "")
+    with pytest.raises(AIProviderError, match="not configured"):
+        generate_content("Dengue prevention", db=db)
+    assert list_generation_history(db) == []
 
 
 # ---------------------------------------------------------
@@ -133,10 +144,10 @@ def test_segment_variants_generation(db):
         sample_limit=3,
     )
     res = generate_segment_variants(req, db=db)
-    assert res.segment_id == 1
-    assert len(res.sample_variants) > 0
+    assert res["segment_id"] == 1
+    assert len(res["sample_variants"]) > 0
     # Make sure personalization occurred with real names
-    assert not any("{{name}}" in v.personalized_content for v in res.sample_variants)
+    assert not any("{{name}}" in v["personalized_content"] for v in res["sample_variants"])
 
 
 # ---------------------------------------------------------
@@ -213,4 +224,3 @@ def test_approval_workflow_lifecycle(db):
     assert updated.status == "approved"
     assert updated.reviewer_id == 1
     assert updated.reviewed_at is not None
-

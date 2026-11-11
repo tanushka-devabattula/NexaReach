@@ -9,7 +9,7 @@ import {
   Mail,
   Sparkles,
 } from "lucide-react";
-import { loginUser } from "../services/api";
+import { loginUser, saveSession } from "../services/api";
 
 function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +26,7 @@ function Login() {
         password: data.get("password"),
       });
 
-      sessionStorage.setItem("access_token", result.access_token);
+      saveSession(result);
 
       navigate("/dashboard", { replace: true });
     } catch (error) {
@@ -57,6 +57,11 @@ function Login() {
         <div className="auth-heading">
           <h1>Welcome back</h1>
           <p>Sign in to manage your communication campaigns.</p>
+          {new URLSearchParams(window.location.search).get("expired") && (
+            <p className="error-message" role="alert">
+              Your session expired. Please sign in again.
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>

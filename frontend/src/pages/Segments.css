@@ -1,11 +1,17 @@
 
+/* =========================================
+   NEXAREACH — AUDIENCE SEGMENTS
+========================================= */
+
 .segments-page {
   min-height: 100vh;
   padding: 30px clamp(18px, 4vw, 48px);
-  background: #f7f8fc;
-  color: #172033;
+  background: #f6f7fb;
+  color: #20243a;
   font-family: Inter, system-ui, sans-serif;
 }
+
+/* Header */
 
 .segments-header,
 .segments-list-header {
@@ -26,6 +32,8 @@
   gap: 10px;
   margin: 9px 0 5px;
   font-size: 26px;
+  font-weight: 750;
+  letter-spacing: -0.7px;
 }
 
 .segments-header h1 svg {
@@ -44,7 +52,7 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 10px 13px;
+  padding: 10px 14px;
   border: 1px solid #e5e7f0;
   border-radius: 9px;
   background: white;
@@ -52,23 +60,27 @@
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
+  transition: .2s ease;
 }
 
-.segments-secondary:disabled {
-  opacity: .6;
-  cursor: wait;
+.segments-secondary:hover {
+  border-color: #bdb0ff;
+  color: #704bea;
+  background: #faf9ff;
 }
+
+/* Hero */
 
 .segments-hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  margin: 27px 0 22px;
+  margin: 26px 0 22px;
   padding: 30px 36px;
   border: 1px solid #e7dfff;
-  border-radius: 18px;
-  background: linear-gradient(110deg, #f0edff, #faf8ff 70%, #eeeaff);
+  border-radius: 16px;
+  background: linear-gradient(110deg, #f0edff, #faf9ff 75%);
 }
 
 .segments-eyebrow {
@@ -79,8 +91,8 @@
 }
 
 .segments-hero h2 {
-  margin: 15px 0 8px;
-  font-size: clamp(25px, 3vw, 35px);
+  margin: 12px 0 8px;
+  font-size: clamp(25px, 3vw, 34px);
   line-height: 1.2;
   letter-spacing: -1px;
 }
@@ -98,23 +110,25 @@
 .segments-hero-icon {
   display: grid;
   place-items: center;
-  width: 105px;
-  height: 105px;
+  width: 95px;
+  height: 95px;
   flex-shrink: 0;
-  margin-right: 25px;
-  border-radius: 28px;
+  margin-right: 20px;
+  border-radius: 25px;
   background: linear-gradient(135deg, #7651f5, #9a4aed);
   color: white;
-  box-shadow: 0 15px 35px #7651f540;
-  transform: rotate(-6deg);
+  box-shadow: 0 12px 28px #7651f530;
 }
 
+/* Main panels */
+
 .segments-panel {
-  margin-bottom: 22px;
-  padding: 24px;
+  margin-bottom: 20px;
+  padding: 25px;
   border: 1px solid #e8eaf2;
   border-radius: 15px;
   background: white;
+  box-shadow: 0 3px 12px #1b244008;
 }
 
 .segments-panel h2 {
@@ -123,6 +137,7 @@
   gap: 8px;
   margin: 0;
   font-size: 16px;
+  font-weight: 750;
 }
 
 .segments-panel h2 svg {
@@ -130,13 +145,15 @@
 }
 
 .segments-subtitle {
-  margin: 7px 0 0;
+  margin: 6px 0 0;
 }
+
+/* Form */
 
 .segments-form {
   display: grid;
-  gap: 17px;
-  margin-top: 22px;
+  gap: 20px;
+  margin-top: 23px;
 }
 
 .segments-form label {
@@ -149,17 +166,21 @@
 }
 
 .segments-form input,
-.segments-form textarea {
+.segments-form textarea,
+.segments-form select {
   box-sizing: border-box;
   width: 100%;
-  padding: 12px 13px;
-  border: 1px solid #dfe3ef;
-  border-radius: 9px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #e1e4ef;
+  border-radius: 8px;
   outline: none;
-  background: white;
+  background: #fff;
   color: #263047;
   font: inherit;
+  font-size: 12px;
   font-weight: 400;
+  transition: border-color .2s, box-shadow .2s;
 }
 
 .segments-form textarea {
@@ -168,9 +189,10 @@
 }
 
 .segments-form input:focus,
-.segments-form textarea:focus {
+.segments-form textarea:focus,
+.segments-form select:focus {
   border-color: #8a72f4;
-  box-shadow: 0 0 0 3px #7651f518;
+  box-shadow: 0 0 0 3px #7651f515;
 }
 
 .segments-hint {
@@ -180,26 +202,55 @@
   line-height: 1.6;
 }
 
+/* Targeting rules */
+
+.segments-form select {
+  cursor: pointer;
+}
+
+.segments-form button {
+  font-family: inherit;
+}
+
+.segments-form button:not(.segments-primary) {
+  transition: .2s ease;
+}
+
+.segments-form button:not(.segments-primary):hover {
+  border-color: #c7baff;
+  color: #704bea;
+}
+
 .segments-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   justify-self: start;
   gap: 8px;
-  padding: 12px 17px;
+  min-height: 40px;
+  padding: 11px 18px;
   border: 0;
   border-radius: 9px;
-  background: linear-gradient(100deg, #5d48ed, #8740ee);
+  background: linear-gradient(100deg, #6049ed, #8245ed);
   color: white;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 10px #704bea25;
+  transition: transform .2s, box-shadow .2s;
+}
+
+.segments-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px #704bea35;
 }
 
 .segments-primary:disabled {
   opacity: .65;
   cursor: wait;
 }
+
+/* Feedback */
 
 .segments-error {
   padding: 12px 14px;
@@ -211,40 +262,49 @@
 }
 
 .segments-empty {
-  padding: 25px 0;
+  padding: 30px 0;
   color: #9299ac;
   text-align: center;
   font-size: 12px;
 }
 
+/* Saved segment cards */
+
 .segments-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
+  gap: 17px;
   margin-top: 22px;
 }
 
 .segment-card {
   min-width: 0;
-  padding: 19px;
+  padding: 20px;
   border: 1px solid #e9eaf2;
   border-radius: 13px;
   background: white;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.segment-card:hover {
+  border-color: #d7ceff;
+  box-shadow: 0 5px 18px #26204c0a;
 }
 
 .segment-icon {
   display: grid;
   place-items: center;
-  width: 41px;
-  height: 41px;
+  width: 39px;
+  height: 39px;
   border-radius: 11px;
   background: #f0edff;
   color: #704bea;
 }
 
 .segment-card h3 {
-  margin: 15px 0 7px;
-  font-size: 15px;
+  margin: 13px 0 6px;
+  font-size: 14px;
+  font-weight: 750;
   overflow-wrap: anywhere;
 }
 
@@ -256,14 +316,16 @@
 
 .segment-id {
   display: inline-block;
-  margin-top: 7px;
+  margin-top: 5px;
   color: #704bea;
   font-size: 10px;
   font-weight: 700;
 }
 
+/* Card details */
+
 .segment-card details {
-  margin-top: 15px;
+  margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid #f0f1f6;
   color: #596176;
@@ -278,7 +340,7 @@
 .segment-card pre {
   max-width: 100%;
   overflow-x: auto;
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
   background: #f7f8fc;
   font-size: 11px;
@@ -286,7 +348,36 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 650px) {
+/* Preview area */
+
+.segment-card button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.segment-card button:hover {
+  filter: brightness(.97);
+}
+
+/* Responsive */
+
+@media (max-width: 800px) {
+  .segments-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .segments-hero {
+    padding: 25px 22px;
+  }
+
+  .segments-hero-icon {
+    width: 75px;
+    height: 75px;
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 550px) {
   .segments-page {
     padding: 20px 14px;
   }
@@ -300,7 +391,7 @@
   }
 
   .segments-hero {
-    padding: 25px 20px;
+    padding: 22px 18px;
   }
 
   .segments-hero-icon {
@@ -308,14 +399,242 @@
   }
 
   .segments-panel {
-    padding: 17px 14px;
-  }
-
-  .segments-grid {
-    grid-template-columns: 1fr;
+    padding: 18px 14px;
   }
 
   .segments-primary {
     width: 100%;
+  }
+}
+
+/* =========================================
+   TARGETING RULE BUILDER — LAYOUT FIX
+========================================= */
+
+.segment-rule-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.segment-rule-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #252b40;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.segment-rule-heading h3 svg {
+  color: #704bea;
+}
+
+.segment-logic-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: -7px;
+}
+
+.segment-logic-control > span {
+  color: #596176;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.segment-logic-control button {
+  min-height: 35px;
+  padding: 8px 13px;
+  justify-self: auto;
+  font-size: 11px;
+}
+
+/* Rule list */
+
+.segment-rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.segment-rule-row {
+  display: grid;
+  grid-template-columns: 34px minmax(150px, 1.2fr)
+    minmax(120px, 0.9fr) minmax(160px, 1.3fr) 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #e9e6f5;
+  border-radius: 12px;
+  background: #faf9fe;
+  transition: border-color .2s, background .2s;
+}
+
+.segment-rule-row:hover {
+  border-color: #d8ceff;
+  background: #f9f7ff;
+}
+
+.segment-rule-number {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+  background: #eee9ff;
+  color: #704bea;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+/* Rule inputs */
+
+.segment-rule-row select,
+.segment-rule-row input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #e1e2ed;
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #343b50;
+  font-family: inherit;
+  font-size: 12px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.segment-rule-row select:focus,
+.segment-rule-row input:focus {
+  border-color: #8a72f4;
+  box-shadow: 0 0 0 3px #7651f515;
+}
+
+/* Remove rule */
+
+.segment-rule-row > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 9px;
+}
+
+.segment-rule-row > button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* Add rule button */
+
+.segments-form > button.segments-secondary {
+  justify-self: start;
+  width: auto;
+  min-height: 37px;
+  padding: 9px 14px;
+  border-color: #ddd5ff;
+  background: #f8f6ff;
+  color: #704bea;
+  font-size: 11px;
+}
+
+.segments-form > button.segments-secondary:hover {
+  background: #f0ebff;
+  border-color: #bbaaff;
+}
+
+/* Success message */
+
+.segments-success {
+  padding: 11px 14px;
+  border: 1px solid #ccebd9;
+  border-radius: 9px;
+  background: #f0fbf4;
+  color: #187747;
+  font-size: 12px;
+}
+
+/* Preview */
+
+.segment-preview {
+  border: 1px solid #e7ddff;
+  background: #f8f5ff !important;
+  color: #44405b;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.segment-preview strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #5839bd;
+  font-size: 13px;
+}
+
+.segment-preview p {
+  margin: 3px 0;
+}
+
+.segment-preview ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* Responsive */
+
+@media (max-width: 850px) {
+  .segment-rule-row {
+    grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .segment-rule-row > input,
+  .segment-rule-row > select:nth-of-type(2) {
+    grid-column: span 1;
+  }
+
+  .segment-rule-row > button {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 550px) {
+  .segment-logic-control {
+    gap: 7px;
+  }
+
+  .segment-rule-row {
+    grid-template-columns: 30px minmax(0, 1fr) 36px;
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .segment-rule-row > select,
+  .segment-rule-row > input {
+    grid-column: 2 / 4;
+  }
+
+  .segment-rule-row > button {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .segment-rule-number {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .segment-rule-row > button {
+    grid-row: 1;
   }
 }

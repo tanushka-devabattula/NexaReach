@@ -20,6 +20,7 @@ function Navbar() {
           <a href="#features">Features</a>
           <a href="#how-it-works">How It Works</a>
           <a href="#about">About</a>
+          <Link to="/announcements">Announcements</Link>
         </nav>
 
         <div className="nav-actions">

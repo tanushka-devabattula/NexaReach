@@ -1,0 +1,17 @@
+.um-page { min-height: 100vh; background: #f5f6fb; padding: 28px 32px; font-family: inherit; }
+.um-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.um-top h1 { margin: 4px 0 0; font-size: 1.6rem; color: #1f2340; }
+.um-crumb { font-size: .75rem; color: #7b7f9e; letter-spacing: .06em; }
+.um-back { display: inline-flex; gap: 6px; align-items: center; border: 1px solid #d8dbef; background: #fff; border-radius: 10px; padding: 9px 14px; cursor: pointer; }
+.um-card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 4px 18px rgba(60, 60, 120, .08); overflow-x: auto; }
+.um-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+.um-table th { text-align: left; font-size: .75rem; color: #7b7f9e; padding: 10px; border-bottom: 1px solid #ececf6; }
+.um-table td { padding: 12px 10px; border-bottom: 1px solid #f1f1f8; font-size: .9rem; }
+.um-badge { padding: 3px 10px; border-radius: 999px; font-size: .75rem; }
+.um-on { background: #e4f7ea; color: #1c7c3b; }
+.um-off { background: #fde7e7; color: #b42323; }
+.um-select, .um-btn { border: 1px solid #d8dbef; border-radius: 8px; padding: 6px 10px; background: #fff; cursor: pointer; }
+.um-btn:disabled, .um-select:disabled { opacity: .5; cursor: not-allowed; }
+.um-msg { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; }
+.um-msg.ok { background: #e4f7ea; color: #1c7c3b; }
+.um-msg.err { background: #fde7e7; color: #b42323; }
